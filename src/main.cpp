@@ -5,6 +5,7 @@
 #include <vector>
 #include <variant>
 #include <optional>
+#include <map>
 
 using std::string, std::cout, std::endl, std::cerr;
 
@@ -12,6 +13,23 @@ string substring(string str, int start, int end) {
     string res = "";
     for(int i = start; i < end; i++) {
         res += str[i];     
+    }
+    return res;
+}
+float strToFloat(string str) {
+    int i = 0;
+    int len = str.length();
+    float res = 0;
+    int pow = 1;
+    for(; str[i] != '.' && str[i] != '\0'; i++) {} 
+    for(int j = i - 1; j >= 0; j--) {
+        res += (str[j] - '0') * pow;
+        pow *= 10;
+    }
+    pow = 2;
+    for(int j = i + 1; j < len; j++) {
+        res += (str[j] - '0') * (1.0 / pow);
+        pow = pow << 1;
     }
     return res;
 }
@@ -24,10 +42,10 @@ void error(int line, string message);
 void report(int line, string where, string message);
 // Literal --------------------------------------------------------------------
 struct Literal {
-    std::variant<int, bool, string> value;
-    Literal(int v): value {v} {}
+    std::variant<float, bool, string> value;
+    Literal(float v): value {v} {}
     Literal(bool v): value {v} {}
-    Literal(string v): value {v} {}
+    Literal(const string& v): value {v} {}
     template <typename T>
     T get() const {
         return std::get<T>(value);
@@ -38,9 +56,9 @@ struct Literal {
     string toString() const {
         if(std::holds_alternative<string>(value)) {
             return get<string>();
-        } else if(std::holds_alternative<string>(value)) {
-            return std::to_string(get<int>());
-        } else if(std::holds_alternative<string>(value)) {
+        } else if(std::holds_alternative<float>(value)) {
+            return std::to_string(get<float>());
+        } else if(std::holds_alternative<bool>(value)) {
             return get<bool>() ? "1" : "0";
         } 
         return "";
@@ -84,7 +102,7 @@ public:
 
     std::string toString() const {
         string literalStr = literal.has_value() ? literal->toString() : "";
-        return tokenTypeToString(type) + " " + lexme + literalStr;
+        return tokenTypeToString(type) + " " + lexme + " " + literalStr;
     }
 };
 // Scanner ---------------------------------------------------------------------
@@ -95,8 +113,11 @@ public:
     int start { 0 };
     int current { 0 };
     int line { 1 };
+    std::map<string, TokenType> keywords;
 
-    Scanner(string source_): tokens {}, source {source_} {}
+    Scanner(string source_): tokens {}, source {source_}, keywords {} {
+        setupKeywords(); 
+    }
     std::vector<Token> scanTokens() {
         while(!isAtEnd()) {
             start = current;
@@ -146,14 +167,62 @@ public:
             case '\n':
                 line++;
                 break;
-            default: error(line, "Unexpected character!"); break;
+            case '"': stringLex(); break;
+            default: 
+                if(isDigit(c)) {
+                    numberLex();
+                } else if(isalpha(c)) {
+                    identifierLex();                
+                } else {
+                    error(line, "Unexpected character!"); 
+                }
+                break;
         }
+    }
+    void identifierLex() {
+        while (isAlphaNumeric(peek())) advance();
+        string text = substring(source, start, current);
+        TokenType type = keywords.contains(text) ? keywords[text] : IDENTIFIER;
+        addToken(type); 
+    }
+    void numberLex() {
+        while(isDigit(peek())) advance();
+        if(peek() == '.' && isDigit(peekNext())) {
+            // we consume '.'
+            advance();
+            while(isDigit(peek())) advance();
+        } 
+        std::optional<Literal> literalopt = 
+            Literal(std::stof(substring(source, start, current)));
+        addToken(NUMBER, literalopt); 
+    }
+    char peekNext() {
+        if(current + 1 >= source.length()) return '\0';
+        return source[current + 1];
+    }
+    bool isDigit(char c) {
+        return c >= '0' && c <= '9';
+    }
+    bool isAlphaNumeric(char c) {
+        return isDigit(c) || isalpha(c);
     }
     char peek() {
         if(isAtEnd()) return '\0';
         return source[current];
     }
-
+    void stringLex() {
+        while(peek() != '"' && !isAtEnd()) {
+            if(peek() == '\n') line++;
+            advance();
+        }
+        if(isAtEnd()) {
+            error(line, "Undetermined string!");
+        }
+        advance();
+        string finalStr = substring(source, start + 1, current - 1);
+        std::optional<Literal> literalopt { std::optional<Literal>(finalStr) };
+        addToken(STRING, literalopt);
+    }
     bool match(char expected) {
         if(isAtEnd()) return false;
         if(source[current] != expected) return false;
@@ -173,7 +242,7 @@ public:
     bool isAtEnd() {
         return current >= source.length();
     }
-
+    void setupKeywords();
 };
 
 int main(int argc, char** argv) {
@@ -271,3 +340,24 @@ void report(int line, string where, string message) {
     cerr << "[line " << line << "] Error " << where << ": " << message << endl;
     hadError = true;
 }
+
+void Scanner::setupKeywords() {
+    keywords["and"] = AND;
+    keywords["class"] = CLASS;
+    keywords["else"] = ELSE;
+    keywords["false"] = FALSE;
+    keywords["for"] = FOR;
+    keywords["fun"] = FUN;
+    keywords["if"] = IF;
+    keywords["nil"] = NIL;
+    keywords["or"] = OR;
+    keywords["print"] = PRINT;
+    keywords["return"] = RETURN;
+    keywords["super"] = SUPER;
+    keywords["this"] = THIS;
+    keywords["true"] = TRUE;
+    keywords["var"] = VAR;
+    keywords["while"] = WHILE; 
+}
+
+
