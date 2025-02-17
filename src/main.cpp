@@ -435,8 +435,6 @@ class Parser {
     }
 
     std::unique_ptr<Expr> primary() {
-    //LiteralExpr(std::unique_ptr<Literal> value) 
-    //: value { std::move(value) } {}
         auto makeLit = []<typename T>(T t){
             return std::make_unique<LiteralExpr>(
                     std::make_unique<Literal>(t));
@@ -539,7 +537,6 @@ public:
             return nullptr;
         }
     }
-    
 };
 
 int main(int argc, char** argv) {
