@@ -12,50 +12,22 @@
 
 using std::string, std::cout, std::endl, std::cerr;
 
-string substring(string str, int start, int end) {
-    string res = "";
-    for(int i = start; i < end; i++) {
-        res += str[i];     
-    }
-    return res;
-}
-float strToFloat(string str) {
-    int i = 0;
-    int len = str.length();
-    float res = 0;
-    int pow = 1;
-    for(; str[i] != '.' && str[i] != '\0'; i++) {} 
-    for(int j = i - 1; j >= 0; j--) {
-        res += (str[j] - '0') * pow;
-        pow *= 10;
-    }
-    pow = 2;
-    for(int j = i + 1; j < len; j++) {
-        res += (str[j] - '0') * (1.0 / pow);
-        pow = pow << 1;
-    }
-    return res;
-}
-// Interpreter stuff ----------------------------------------------------------
-bool hadError { false };
-void runFile(std::string path);
-void runPrompt();
-void run(std::string source);
-void error(int line, string message);
-void report(int line, string where, string message);
+struct Nil { Nil() {} };
+
 // Literal --------------------------------------------------------------------
 struct Literal {
-    std::variant<float, bool, string> value;
+    std::variant<float, bool, string, Nil> value;
     Literal(float v): value {v} {}
     Literal(bool v): value {v} {}
     Literal(const string& v): value {v} {}
+    Literal(Nil v): value {v} {}
     template <typename T>
     T get() const {
         return std::get<T>(value);
     }
-    void print() {
+    /*void print() {
         std::visit([](auto&& arg) { std::cout << arg << '\n'; }, value);
-    }
+    }*/
     string toString() const {
         if(std::holds_alternative<string>(value)) {
             return get<string>();
@@ -63,11 +35,13 @@ struct Literal {
             return std::to_string(get<float>());
         } else if(std::holds_alternative<bool>(value)) {
             return get<bool>() ? "1" : "0";
-        } 
+        } else if(std::holds_alternative<Nil>(value)) {
+            return "nil";
+        }
         return "";
     }
 };
-// Token ----------------------------------------------------------------------
+
 enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
@@ -88,26 +62,46 @@ enum TokenType {
 
     EOF_
 };
-std::string tokenTypeToString(TokenType type);
+
 class Token {
 public:
     TokenType type;
     std::string lexme;
     std::optional<Literal> literal;
     int line;
-
-    Token(TokenType type_, std::string lexme_, int line_, std::optional<Literal> literal_) :
-        type {type_}, lexme {lexme_}, line {line_}, literal {literal_}
-    {}
-    Token(TokenType type_, std::string lexme_, int line_) :
-        Token(type_, lexme_, line_, std::nullopt) 
-    {}
-
-    std::string toString() const {
-        string literalStr = literal.has_value() ? literal->toString() : "";
-        return tokenTypeToString(type) + " " + lexme + " " + literalStr;
-    }
+    Token(TokenType type_, std::string lexme_, int line_, std::optional<Literal> literal_);
+    Token(TokenType type_, std::string lexme_, int line_);
+    std::string toString() const; 
 };
+
+// Interpreter stuff ----------------------------------------------------------
+bool hadError { false };
+void runFile(std::string path);
+void runPrompt();
+void run(std::string source);
+void error(Token token, string message);
+void error(int line, string message);
+void report(Token token, string where, string message);
+void report(int line, string where, string message);
+
+string substring(string str, int start, int end);
+float strToFloat(string str);
+
+
+// Token ----------------------------------------------------------------------
+std::string tokenTypeToString(TokenType type);
+
+Token::Token(TokenType type_, std::string lexme_, int line_, std::optional<Literal> literal_) :
+    type {type_}, lexme {lexme_}, line {line_}, literal {literal_}
+{}
+Token::Token(TokenType type_, std::string lexme_, int line_) :
+    Token(type_, lexme_, line_, std::nullopt) 
+{}
+
+std::string Token::toString() const {
+    string literalStr = literal.has_value() ? literal->toString() : "";
+    return tokenTypeToString(type) + " " + lexme + " " + literalStr;
+}
 // Scanner ---------------------------------------------------------------------
 class Scanner {
 public:
@@ -255,12 +249,6 @@ class Unop;
 class Grouping;
 class LiteralExpr;
 
-class Equality;
-class Comparison;
-class Term;
-class Factor;
-class Unary;
-class Primary;
  
 class Visitor {
 public:
@@ -269,7 +257,6 @@ public:
     virtual std::any visitUnop(const Unop* unop) const = 0;
     virtual std::any visitGrouping(const Grouping* grouping) const = 0;
     virtual std::any visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
-    virtual std::any visitEquality(const Equality* eqExpr) const = 0;
 };
 
 class Expr {
@@ -290,19 +277,6 @@ unary          → ( "!" | "-" ) unary
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
  */
-/*class Equality : public Expr {
-public:
-    std::unique_ptr<Comparison> leftComp;
-    std::vector<std::tuple<Token, std::unique_ptr<Comparison>>> rightComp;
-    virtual std::any accept(const Visitor* visitor) const override {
-        if(!visitor) return NULL;
-        return visitor->visitEquality(this);
-    }
-    virtual ~Equality() override {};
-};
-class Comparison : public Expr {
-    
-};*/
 
 class Binop : public Expr {
 public:
@@ -323,7 +297,7 @@ class Unop : public Expr {
 public:
     std::unique_ptr<Expr> expr;
     Token op;
-    Unop(std::unique_ptr<Expr> expr, Token op)
+    Unop(Token op, std::unique_ptr<Expr> expr)
         : expr { std::move(expr) }, op { op }
     { }
     ~Unop() override { }
@@ -391,13 +365,145 @@ public:
     }
 };
 
+// Parser ---------------------------------------------------------------------
+
+class ParseError : public std::runtime_error {
+public:
+    ParseError(const std::string& message) : std::runtime_error(message) {}
+    ~ParseError() = default;
+};
+
 class Parser {
     std::vector<Token> tokens;
     int current;
+
+    std::unique_ptr<Expr> expression() {
+        return equality();
+    }
+
+    std::unique_ptr<Expr> equality() {
+        auto expr = comparison();
+        while(match(BANG_EQUAL, EQUAL_EQUAL)) {
+            Token op = previous();
+            auto right = comparison();
+            expr = std::make_unique<Binop>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::unique_ptr<Expr> comparison() {
+        auto expr = term();
+        while(match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+            Token op = previous();
+            auto right = comparison();
+            expr = std::make_unique<Binop>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::unique_ptr<Expr> term() {
+        auto expr = factor();
+        while(match(MINUS, PLUS)) {
+            Token op = previous();
+            auto right = factor();
+            expr = std::make_unique<Binop>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::unique_ptr<Expr> factor() {
+        auto expr = unary();
+        while(match(SLASH, STAR)) {
+            Token op = previous();
+            auto right = unary();
+            expr = std::make_unique<Binop>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+    
+    std::unique_ptr<Expr> unary() {
+        if(match(BANG, MINUS)) {
+            Token op = previous();
+            auto right = unary();
+            return std::make_unique<Unop>(op, std::move(right));
+        }
+        return primary();
+    }
+
+    std::unique_ptr<Expr> primary() {
+    //LiteralExpr(std::unique_ptr<Literal> value) 
+    //: value { std::move(value) } {}
+        auto makeLit = []<typename T>(T t){
+            return std::make_unique<LiteralExpr>(
+                    std::make_unique<Literal>(t));
+        };
+        if(match(FALSE)) return makeLit(false);
+        if(match(TRUE)) return makeLit(true);
+        if(match(NIL)) return makeLit(Nil());
+        
+        if(match(NUMBER, STRING)) {
+            auto literal = previous().literal;
+            if(literal.has_value()) {
+                return makeLit(literal.value());
+            } else {
+                throw std::runtime_error("[Primary] Literal value is empty");
+            }
+        }
+
+        if(match(LEFT_PAREN)) {
+            auto expr = expression();
+            consume(RIGHT_PAREN, "Expect ')' after expression.");
+            return std::make_unique<Grouping>(std::move(expr));
+        }
+    }
+
+    template <typename... TokenTypes>
+    bool match(TokenTypes... types) {
+        for(const auto& type: {types...}) {
+            if(check(type)) {
+                advance();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Token consume(TokenType type, string message) {
+        if(check(type)) return advance();
+
+        throw parserError(peek(), message);
+    }
+
+    bool check(TokenType type) {
+        if(isAtEnd()) return false;
+        return peek().type == type;
+    }
+
+    Token advance() {
+        if(!isAtEnd()) current++;
+        return previous();
+    }
+
+    bool isAtEnd() {
+        return peek().type == EOF_;
+    }
+
+    Token peek() {
+        return tokens[current];
+    }
+
+    Token previous() {
+        return tokens[current - 1];
+    }
+
+    ParseError parserError(Token token, string message) {
+        error(token, message);
+        return ParseError(message);
+    }
+
 public:
     Parser(std::vector<Token> tokens) :
         tokens { tokens }, current { 0 } {}
-
     
 };
 
@@ -488,12 +594,24 @@ void run(std::string source) {
     }
 }
 
+void error(Token token, string message) {
+    if (token.type == EOF_) {
+        report(token.line, " at end", message);
+    } else {
+        report(token.line, " at '" + token.lexme + "'", message);
+    }
+}
 void error(int line, string message) {
     report(line, "", message);
 }
 
 void report(int line, string where, string message) {
     cerr << "[line " << line << "] Error " << where << ": " << message << endl;
+    hadError = true;
+}
+
+void report(Token token, string where, string message) {
+    cerr << "[line " << token.line << "] Error " << where << ": " << message << endl;
     hadError = true;
 }
 
@@ -517,3 +635,27 @@ void Scanner::setupKeywords() {
 }
 
 
+string substring(string str, int start, int end) {
+    string res = "";
+    for(int i = start; i < end; i++) {
+        res += str[i];     
+    }
+    return res;
+}
+float strToFloat(string str) {
+    int i = 0;
+    int len = str.length();
+    float res = 0;
+    int pow = 1;
+    for(; str[i] != '.' && str[i] != '\0'; i++) {} 
+    for(int j = i - 1; j >= 0; j--) {
+        res += (str[j] - '0') * pow;
+        pow *= 10;
+    }
+    pow = 2;
+    for(int j = i + 1; j < len; j++) {
+        res += (str[j] - '0') * (1.0 / pow);
+        pow = pow << 1;
+    }
+    return res;
+}
