@@ -252,7 +252,6 @@ class LiteralExpr;
  
 class Visitor {
 public:
-    virtual ~Visitor() = default;
     virtual std::any visitBinop(const Binop* binop) const = 0;
     virtual std::any visitUnop(const Unop* unop) const = 0;
     virtual std::any visitGrouping(const Grouping* grouping) const = 0;
@@ -262,7 +261,7 @@ public:
 class Expr {
 public:
     virtual std::any accept(const Visitor* visitor) const = 0;
-    virtual ~Expr() = 0;
+    virtual ~Expr() = default;
 };
 
 
@@ -286,7 +285,7 @@ public:
     Binop(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
-    ~Binop() override { }
+    virtual ~Binop() override { }
     virtual std::any accept(const Visitor* visitor) const override {
         if(!visitor) return NULL;
         return visitor->visitBinop(this);
@@ -300,7 +299,7 @@ public:
     Unop(Token op, std::unique_ptr<Expr> expr)
         : expr { std::move(expr) }, op { op }
     { }
-    ~Unop() override { }
+    virtual ~Unop() override { }
     virtual std::any accept(const Visitor* visitor) const override {
         if(!visitor) return NULL;
         return visitor->visitUnop(this);
@@ -311,10 +310,10 @@ class Grouping : public Expr {
 public:
     std::unique_ptr<Expr> expr;
     Grouping(std::unique_ptr<Expr> expr) : expr { std::move(expr) } {}
-    ~Grouping() override { }
+    virtual ~Grouping() override { }
     virtual std::any accept(const Visitor* visitor) const override {
         if(!visitor) return NULL;
-        visitor->visitGrouping(this);
+        return visitor->visitGrouping(this);
     }
 };
 
@@ -322,7 +321,7 @@ class LiteralExpr : public Expr {
 public:
     std::unique_ptr<Literal> value;
     LiteralExpr(std::unique_ptr<Literal> value) : value { std::move(value) } {}
-    ~LiteralExpr() override { }
+    virtual ~LiteralExpr() override { }
     virtual std::any accept(const Visitor* visitor) const override {
         if(!visitor) return NULL;
         return visitor->visitLiteralExpr(this);
@@ -346,8 +345,13 @@ public:
     virtual std::any visitUnop(const Unop* unop) const override {
         return parenthesize(unop->op.lexme, unop->expr);        
     }
-    virtual std::any visitGrouping(Grouping* grouping) = 0;
-    virtual std::any visitLiteralExpr(LiteralExpr* literalExpr) = 0;
+    virtual std::any visitGrouping(const Grouping* expr) const override {
+        return parenthesize("group", expr->expr);
+    }
+    virtual std::any visitLiteralExpr(const LiteralExpr* expr) const override {
+        if(!expr->value) return "nil";
+        return expr->value->toString();
+    }
 
     template <typename... Exprs>
     void processExprsHelper(std::ostringstream& oss, 
@@ -455,6 +459,8 @@ class Parser {
             consume(RIGHT_PAREN, "Expect ')' after expression.");
             return std::make_unique<Grouping>(std::move(expr));
         }
+
+        throw parserError(peek(), "Expected expression.");
     }
 
     template <typename... TokenTypes>
@@ -501,9 +507,38 @@ class Parser {
         return ParseError(message);
     }
 
+    void synchronize() {
+        advance();
+        while(!isAtEnd()) {
+            if(previous().type == SEMICOLON) return;
+
+            switch(peek().type) {
+                case CLASS:
+                case FUN:
+                case VAR:
+                case FOR:
+                case IF:
+                case WHILE:
+                case PRINT:
+                case RETURN:
+                  return;
+                default: break;
+            }
+            advance();
+        }
+    }
+
 public:
     Parser(std::vector<Token> tokens) :
         tokens { tokens }, current { 0 } {}
+
+    std::unique_ptr<Expr> parse() {
+        try {
+            return expression();
+        } catch(ParseError error) {
+            return nullptr;
+        }
+    }
     
 };
 
@@ -589,9 +624,12 @@ void run(std::string source) {
     if(hadError) return;
     Scanner scanner(source);
     auto tokens = scanner.scanTokens();
-    for(const auto& token: tokens) {
-        std::cout << token.toString() << std::endl;
-    }
+    Parser parser(tokens);
+    std::unique_ptr<Expr> expr = parser.parse();
+    // Stop if there was a syntax error 
+    if(hadError) return;
+
+    std::cout << AstPrinter().print(std::move(expr)) << std::endl;
 }
 
 void error(Token token, string message) {
