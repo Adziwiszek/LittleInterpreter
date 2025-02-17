@@ -1,5 +1,6 @@
 #include <iostream>
 #include <any>
+#include <tuple>
 #include <string>
 #include <memory>
 #include <fstream>
@@ -254,6 +255,13 @@ class Unop;
 class Grouping;
 class LiteralExpr;
 
+class Equality;
+class Comparison;
+class Term;
+class Factor;
+class Unary;
+class Primary;
+ 
 class Visitor {
 public:
     virtual ~Visitor() = default;
@@ -261,6 +269,7 @@ public:
     virtual std::any visitUnop(const Unop* unop) const = 0;
     virtual std::any visitGrouping(const Grouping* grouping) const = 0;
     virtual std::any visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
+    virtual std::any visitEquality(const Equality* eqExpr) const = 0;
 };
 
 class Expr {
@@ -269,11 +278,37 @@ public:
     virtual ~Expr() = 0;
 };
 
+
+/*
+expression     → equality ;
+equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term           → factor ( ( "-" | "+" ) factor )* ;
+factor         → unary ( ( "/" | "*" ) unary )* ;
+unary          → ( "!" | "-" ) unary
+               | primary ;
+primary        → NUMBER | STRING | "true" | "false" | "nil"
+               | "(" expression ")" ;
+ */
+/*class Equality : public Expr {
+public:
+    std::unique_ptr<Comparison> leftComp;
+    std::vector<std::tuple<Token, std::unique_ptr<Comparison>>> rightComp;
+    virtual std::any accept(const Visitor* visitor) const override {
+        if(!visitor) return NULL;
+        return visitor->visitEquality(this);
+    }
+    virtual ~Equality() override {};
+};
+class Comparison : public Expr {
+    
+};*/
+
 class Binop : public Expr {
+public:
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
     Token op;
-public:
     Binop(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
@@ -285,9 +320,9 @@ public:
 };
 
 class Unop : public Expr {
+public:
     std::unique_ptr<Expr> expr;
     Token op;
-public:
     Unop(std::unique_ptr<Expr> expr, Token op)
         : expr { std::move(expr) }, op { op }
     { }
@@ -299,8 +334,8 @@ public:
 };
 
 class Grouping : public Expr {
-    std::unique_ptr<Expr> expr;
 public:
+    std::unique_ptr<Expr> expr;
     Grouping(std::unique_ptr<Expr> expr) : expr { std::move(expr) } {}
     ~Grouping() override { }
     virtual std::any accept(const Visitor* visitor) const override {
@@ -310,8 +345,8 @@ public:
 };
 
 class LiteralExpr : public Expr {
-    std::unique_ptr<Literal> value;
 public:
+    std::unique_ptr<Literal> value;
     LiteralExpr(std::unique_ptr<Literal> value) : value { std::move(value) } {}
     ~LiteralExpr() override { }
     virtual std::any accept(const Visitor* visitor) const override {
@@ -331,12 +366,39 @@ public:
                     in AstPrinter!!!");
         }
     }
-    virtual std::any visitBinop(const Binop* binop) const override {}
-    virtual std::any visitUnop(Unop* unop) = 0;
+    virtual std::any visitBinop(const Binop* binop) const override {
+        return parenthesize(binop->op.lexme, binop->left, binop->right);
+    }
+    virtual std::any visitUnop(const Unop* unop) const override {
+        return parenthesize(unop->op.lexme, unop->expr);        
+    }
     virtual std::any visitGrouping(Grouping* grouping) = 0;
     virtual std::any visitLiteralExpr(LiteralExpr* literalExpr) = 0;
+
+    template <typename... Exprs>
+    void processExprsHelper(std::ostringstream& oss, 
+            const std::unique_ptr<Exprs>&... exprs) const {
+        ((oss << " " << std::any_cast<std::string>(exprs->accept(this))), ...);
+    }
     template <typename... Exprs>
     string parenthesize(const string& name, 
+            const std::unique_ptr<Exprs>&... exprs) const {
+        std::ostringstream oss;
+        oss << "(" << name;
+        processExprsHelper(oss, exprs...);
+        oss << ")";
+        return oss.str();
+    }
+};
+
+class Parser {
+    std::vector<Token> tokens;
+    int current;
+public:
+    Parser(std::vector<Token> tokens) :
+        tokens { tokens }, current { 0 } {}
+
+    
 };
 
 int main(int argc, char** argv) {
