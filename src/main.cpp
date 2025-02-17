@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <memory>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -244,6 +245,49 @@ public:
     }
     void setupKeywords();
 };
+
+// Expr abstract class---------------------------------------------------------
+
+class Expr {
+public:
+    virtual ~Expr() = 0;
+};
+
+class Binop : public Expr {
+    std::unique_ptr<Expr> left;
+    std::unique_ptr<Expr> right;
+    Token op;
+public:
+    Binop(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
+        : left { std::move(left) }, right { std::move(right) }, op { op }
+    { }
+    ~Binop() override { }
+};
+
+class Unop : public Expr {
+    std::unique_ptr<Expr> expr;
+    Token op;
+public:
+    Unop(std::unique_ptr<Expr> expr, Token op)
+        : expr { std::move(expr) }, op { op }
+    { }
+    ~Unop() override { }
+};
+
+class Grouping : public Expr {
+    std::unique_ptr<Expr> expr;
+public:
+    Grouping(std::unique_ptr<Expr> expr) : expr { std::move(expr) } {}
+    ~Grouping() override { }
+};
+
+class LiteralExpr : public Expr {
+    std::unique_ptr<Literal> value;
+public:
+    LiteralExpr(std::unique_ptr<Literal> value) : value { std::move(value) } {}
+    ~LiteralExpr() override { }
+};
+
 
 int main(int argc, char** argv) {
     if(argc > 2) {
