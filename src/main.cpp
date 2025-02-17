@@ -1,4 +1,5 @@
 #include <iostream>
+#include <any>
 #include <string>
 #include <memory>
 #include <fstream>
@@ -247,9 +248,24 @@ public:
 };
 
 // Expr abstract class---------------------------------------------------------
+class Expr;
+class Binop;
+class Unop;
+class Grouping;
+class LiteralExpr;
+
+class Visitor {
+public:
+    virtual ~Visitor() = default;
+    virtual std::any visitBinop(const Binop* binop) const = 0;
+    virtual std::any visitUnop(const Unop* unop) const = 0;
+    virtual std::any visitGrouping(const Grouping* grouping) const = 0;
+    virtual std::any visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
+};
 
 class Expr {
 public:
+    virtual std::any accept(const Visitor* visitor) const = 0;
     virtual ~Expr() = 0;
 };
 
@@ -262,6 +278,10 @@ public:
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
     ~Binop() override { }
+    virtual std::any accept(const Visitor* visitor) const override {
+        if(!visitor) return NULL;
+        return visitor->visitBinop(this);
+    }
 };
 
 class Unop : public Expr {
@@ -272,6 +292,10 @@ public:
         : expr { std::move(expr) }, op { op }
     { }
     ~Unop() override { }
+    virtual std::any accept(const Visitor* visitor) const override {
+        if(!visitor) return NULL;
+        return visitor->visitUnop(this);
+    }
 };
 
 class Grouping : public Expr {
@@ -279,6 +303,10 @@ class Grouping : public Expr {
 public:
     Grouping(std::unique_ptr<Expr> expr) : expr { std::move(expr) } {}
     ~Grouping() override { }
+    virtual std::any accept(const Visitor* visitor) const override {
+        if(!visitor) return NULL;
+        visitor->visitGrouping(this);
+    }
 };
 
 class LiteralExpr : public Expr {
@@ -286,8 +314,30 @@ class LiteralExpr : public Expr {
 public:
     LiteralExpr(std::unique_ptr<Literal> value) : value { std::move(value) } {}
     ~LiteralExpr() override { }
+    virtual std::any accept(const Visitor* visitor) const override {
+        if(!visitor) return NULL;
+        return visitor->visitLiteralExpr(this);
+    }
 };
 
+class AstPrinter : public Visitor {
+public:
+    string print(std::unique_ptr<Expr> expr) const {
+        std::any result = expr->accept(this);
+        if(result.type() == typeid(std::string)) {
+            return std::any_cast<string>(result);
+        } else {
+            throw std::runtime_error("Unexpected return type from accept \
+                    in AstPrinter!!!");
+        }
+    }
+    virtual std::any visitBinop(const Binop* binop) const override {}
+    virtual std::any visitUnop(Unop* unop) = 0;
+    virtual std::any visitGrouping(Grouping* grouping) = 0;
+    virtual std::any visitLiteralExpr(LiteralExpr* literalExpr) = 0;
+    template <typename... Exprs>
+    string parenthesize(const string& name, 
+};
 
 int main(int argc, char** argv) {
     if(argc > 2) {
