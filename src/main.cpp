@@ -1,6 +1,6 @@
 #include <iostream>
 #include <any>
-#include <tuple>
+#include <functional>
 #include <string>
 #include <memory>
 #include <fstream>
@@ -15,8 +15,21 @@ using std::string, std::cout, std::endl, std::cerr;
 struct Nil { Nil() {} };
 
 // Literal --------------------------------------------------------------------
+using Value = std::variant<float, bool, string, Nil>;
+string valueToString(Value value) {
+    if(std::holds_alternative<string>(value)) {
+        return std::get<string>(value);
+    } else if(std::holds_alternative<float>(value)) {
+        return std::to_string(std::get<float>(value));
+    } else if(std::holds_alternative<bool>(value)) {
+        return std::get<bool>(value) ? "1" : "0";
+    } else if(std::holds_alternative<Nil>(value)) {
+        return "nil";
+    }
+    return "";
+}
 struct Literal {
-    std::variant<float, bool, string, Nil> value;
+    Value value;
     Literal(float v): value {v} {}
     Literal(bool v): value {v} {}
     Literal(const string& v): value {v} {}
@@ -74,8 +87,17 @@ public:
     std::string toString() const; 
 };
 
-// Interpreter stuff ----------------------------------------------------------
+class RuntimeError : public std::runtime_error {
+public:
+    Token token;
+    RuntimeError(Token token, const std::string& message) : 
+        token { token }, std::runtime_error(message) {}
+    ~RuntimeError() = default;
+};
+
+// Global use -----------------------------------------------------------------
 bool hadError { false };
+bool hadRuntimeError { false };
 void runFile(std::string path);
 void runPrompt();
 void run(std::string source);
@@ -83,6 +105,7 @@ void error(Token token, string message);
 void error(int line, string message);
 void report(Token token, string where, string message);
 void report(int line, string where, string message);
+void runtimeError(RuntimeError error);
 
 string substring(string str, int start, int end);
 float strToFloat(string str);
@@ -249,18 +272,19 @@ class Unop;
 class Grouping;
 class LiteralExpr;
 
- 
+// I'm using std::any instead of templates because templates don't work with
+// virtual functions:(
 class Visitor {
 public:
-    virtual std::any visitBinop(const Binop* binop) const = 0;
-    virtual std::any visitUnop(const Unop* unop) const = 0;
-    virtual std::any visitGrouping(const Grouping* grouping) const = 0;
-    virtual std::any visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
+    virtual Value visitBinop(const Binop* binop) const = 0;
+    virtual Value visitUnop(const Unop* unop) const = 0;
+    virtual Value visitGrouping(const Grouping* grouping) const = 0;
+    virtual Value visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
 };
 
 class Expr {
 public:
-    virtual std::any accept(const Visitor* visitor) const = 0;
+    virtual Value accept(const Visitor* visitor) const = 0;
     virtual ~Expr() = default;
 };
 
@@ -279,58 +303,58 @@ primary        → NUMBER | STRING | "true" | "false" | "nil"
 
 class Binop : public Expr {
 public:
-    std::unique_ptr<Expr> left;
-    std::unique_ptr<Expr> right;
+    std::shared_ptr<Expr> left;
+    std::shared_ptr<Expr> right;
     Token op;
-    Binop(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
+    Binop(std::shared_ptr<Expr> left, Token op, std::shared_ptr<Expr> right)
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
     virtual ~Binop() override { }
-    virtual std::any accept(const Visitor* visitor) const override {
-        if(!visitor) return NULL;
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
         return visitor->visitBinop(this);
     }
 };
 
 class Unop : public Expr {
 public:
-    std::unique_ptr<Expr> expr;
+    std::shared_ptr<Expr> expr;
     Token op;
-    Unop(Token op, std::unique_ptr<Expr> expr)
+    Unop(Token op, std::shared_ptr<Expr> expr)
         : expr { std::move(expr) }, op { op }
     { }
     virtual ~Unop() override { }
-    virtual std::any accept(const Visitor* visitor) const override {
-        if(!visitor) return NULL;
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
         return visitor->visitUnop(this);
     }
 };
 
 class Grouping : public Expr {
 public:
-    std::unique_ptr<Expr> expr;
-    Grouping(std::unique_ptr<Expr> expr) : expr { std::move(expr) } {}
+    std::shared_ptr<Expr> expr;
+    Grouping(std::shared_ptr<Expr> expr) : expr { std::move(expr) } {}
     virtual ~Grouping() override { }
-    virtual std::any accept(const Visitor* visitor) const override {
-        if(!visitor) return NULL;
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
         return visitor->visitGrouping(this);
     }
 };
 
 class LiteralExpr : public Expr {
 public:
-    std::unique_ptr<Literal> value;
-    LiteralExpr(std::unique_ptr<Literal> value) : value { std::move(value) } {}
+    std::shared_ptr<Literal> value;
+    LiteralExpr(std::shared_ptr<Literal> value) : value { std::move(value) } {}
     virtual ~LiteralExpr() override { }
-    virtual std::any accept(const Visitor* visitor) const override {
-        if(!visitor) return NULL;
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
         return visitor->visitLiteralExpr(this);
     }
 };
 
 class AstPrinter : public Visitor {
 public:
-    string print(std::unique_ptr<Expr> expr) const {
+    string print(std::shared_ptr<Expr> expr) const {
         std::any result = expr->accept(this);
         if(result.type() == typeid(std::string)) {
             return std::any_cast<string>(result);
@@ -339,28 +363,28 @@ public:
                     in AstPrinter!!!");
         }
     }
-    virtual std::any visitBinop(const Binop* binop) const override {
+    virtual Value visitBinop(const Binop* binop) const override {
         return parenthesize(binop->op.lexme, binop->left, binop->right);
     }
-    virtual std::any visitUnop(const Unop* unop) const override {
+    virtual Value visitUnop(const Unop* unop) const override {
         return parenthesize(unop->op.lexme, unop->expr);        
     }
-    virtual std::any visitGrouping(const Grouping* expr) const override {
+    virtual Value visitGrouping(const Grouping* expr) const override {
         return parenthesize("group", expr->expr);
     }
-    virtual std::any visitLiteralExpr(const LiteralExpr* expr) const override {
+    virtual Value visitLiteralExpr(const LiteralExpr* expr) const override {
         if(!expr->value) return "nil";
         return expr->value->toString();
     }
 
     template <typename... Exprs>
     void processExprsHelper(std::ostringstream& oss, 
-            const std::unique_ptr<Exprs>&... exprs) const {
+            const std::shared_ptr<Exprs>&... exprs) const {
         ((oss << " " << std::any_cast<std::string>(exprs->accept(this))), ...);
     }
     template <typename... Exprs>
     string parenthesize(const string& name, 
-            const std::unique_ptr<Exprs>&... exprs) const {
+            const std::shared_ptr<Exprs>&... exprs) const {
         std::ostringstream oss;
         oss << "(" << name;
         processExprsHelper(oss, exprs...);
@@ -437,7 +461,7 @@ class Parser {
     std::unique_ptr<Expr> primary() {
         auto makeLit = []<typename T>(T t){
             return std::make_unique<LiteralExpr>(
-                    std::make_unique<Literal>(t));
+                    std::make_shared<Literal>(t));
         };
         if(match(FALSE)) return makeLit(false);
         if(match(TRUE)) return makeLit(true);
@@ -539,6 +563,145 @@ public:
     }
 };
 
+// Interpreter ----------------------------------------------------------------
+
+
+class Interpreter : public Visitor {
+    void checkNumberOperand(Token op, Value& val) const {
+        if(std::holds_alternative<float>(val)) return;
+        throw RuntimeError(op, "Operand must be a number.");
+    }
+    void checkNumberOperands(Token op, Value& left, Value& right) const {
+        if(std::holds_alternative<float>(left) &&
+           std::holds_alternative<float>(right)) return;
+        throw RuntimeError(op, "Operands must be a number.");
+    }
+    void reportDifferentTypesOperands() const {
+        //throw RuntimeError(
+    }
+    bool isTruthy(Value val) const {
+        return std::visit([](auto&& arg) -> bool {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, Nil>) {
+                return false;  // nil is false
+            } else if constexpr (std::is_same_v<T, bool>) {
+                return arg;  // return the boolean value itself
+            } else if constexpr (std::is_same_v<T, float>) {
+                return arg != 0;  // nonzero numbers are true
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                return !arg.empty();  // non-empty strings are true
+            }
+            return false; // Default case (shouldn't happen)
+        }, val);
+    }
+    bool isEqual(Value left, Value right) const {
+        if(std::holds_alternative<Nil>(left)) {
+           return std::holds_alternative<Nil>(right);
+        }
+        auto eq = [&left, &right]<typename T>() -> bool {
+            auto l = std::get<T>(left);
+            auto r = std::get<T>(right);
+            return l == r;
+        };
+        if(std::holds_alternative<string>(left) 
+        && std::holds_alternative<string>(right)) 
+            return eq.template operator()<string>();
+        if(std::holds_alternative<float>(left)
+        && std::holds_alternative<float>(right)) 
+            return eq.template operator()<float>();
+        if(std::holds_alternative<bool>(left)
+        && std::holds_alternative<bool>(right)) 
+            return eq.template operator()<bool>();
+        //reportDifferentTypesOperands();
+        // for now two different types are always not equal
+        return false;
+    }
+public:
+    virtual Value visitBinop(const Binop* expr) const override {
+        Value left = evaluate(&*expr->left);
+        Value right = evaluate(&*expr->right);
+        auto executeBinop = 
+            [&left, &right]<typename T, typename F>(F fn) -> T { 
+            auto l = std::get<T>(left);
+            auto r = std::get<T>(right);
+            return fn(l, r);
+        };
+        switch (expr->op.type) {
+            case EQUAL_EQUAL: return isEqual(left, right);
+            case BANG_EQUAL: return !isEqual(left, right);
+            case GREATER:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::greater<float>{});
+            case GREATER_EQUAL:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::greater_equal<float>{});
+            case LESS:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::less<float>{});
+            case LESS_EQUAL:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::less_equal<float>{});
+            case MINUS:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::minus<float>{});
+            case SLASH:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::divides<float>{});
+            case STAR:
+                checkNumberOperands(expr->op, left, right);
+                return executeBinop.template operator()<float>(std::multiplies<float>{});
+            case PLUS:
+                if(std::holds_alternative<float>(left) 
+                && std::holds_alternative<float>(right)) {
+                    return executeBinop.template operator()<float>
+                        (std::plus<float>{});
+                }
+                
+                if(std::holds_alternative<string>(left) 
+                && std::holds_alternative<string>(right)) {
+                    auto l = std::get<string>(left);
+                    auto r = std::get<string>(right);
+                    return l + r;
+                }
+                throw RuntimeError(expr->op, "Operands must be two numbers or two strings");
+            default: break;
+        }
+        return Nil();
+    }
+    virtual Value visitUnop(const Unop* expr) const override {
+        Value right = evaluate(&*expr->expr);
+        switch(expr->op.type) {
+            case BANG: {
+                return !isTruthy(right);
+            }
+            case MINUS: {
+                checkNumberOperand(expr->op, right);
+                float val = std::get<float>(right);
+                return -val;
+            }
+            default: break;
+        }
+        return Nil();
+    }
+    virtual Value visitGrouping(const Grouping* expr) const override {
+        return evaluate(expr);
+    }
+    virtual Value visitLiteralExpr(const LiteralExpr* expr) const override {
+        return expr->value->value;
+    }
+    Value evaluate(const Expr* expr) const {
+        return expr->accept(this);
+    }
+    void interpret(const std::shared_ptr<Expr> expr) {
+        try {
+            Value value = evaluate(&*expr); 
+            std::cout << valueToString(value) << std::endl;
+        } catch(RuntimeError error) {
+            runtimeError(error); 
+        }
+    }
+};
+
 int main(int argc, char** argv) {
     if(argc > 2) {
         std::cout << "Usage: ./dupa [script]" << std::endl;
@@ -550,6 +713,89 @@ int main(int argc, char** argv) {
     return 0;
 }
 
+
+
+void runFile(std::string path) {
+    std::ifstream input(path);
+    if(!input.good()) {
+        std::cerr << "runFile(path) error\nFailed to open " << path << std::endl;
+        return;
+    }
+    std::stringstream buffer;
+    buffer << input.rdbuf();
+    run(buffer.str());
+    if(hadError) exit(65);
+    if(hadRuntimeError) exit(70);
+}
+
+void runPrompt() {
+    std::string userInput;
+    while(true) {
+        std::cout << "> ";
+        if(!std::getline(std::cin, userInput)) break;
+        run(userInput);
+        hadError = false;
+    }
+}
+
+void run(std::string source) {
+    if(hadError) return;
+    Scanner scanner(source);
+    auto tokens = scanner.scanTokens();
+
+    Parser parser(tokens);
+    std::shared_ptr<Expr> expr = parser.parse();
+    // Stop if there was a syntax error 
+    if(hadError) return;
+
+    Interpreter interpreter; 
+    interpreter.interpret(expr);
+}
+
+void error(Token token, string message) {
+    if (token.type == EOF_) {
+        report(token.line, " at end", message);
+    } else {
+        report(token.line, " at '" + token.lexme + "'", message);
+    }
+}
+void error(int line, string message) {
+    report(line, "", message);
+}
+
+void report(int line, string where, string message) {
+    cerr << "[line " << line << "] Error " << where << ": " << message << endl;
+    hadError = true;
+}
+
+void report(Token token, string where, string message) {
+    cerr << "[line " << token.line << "] Error " << where << ": " << message << endl;
+    hadError = true;
+}
+
+void runtimeError(RuntimeError error) {
+    std::cerr << error.what() << "\n[line " << error.token.line << "]\n";
+    hadRuntimeError = true;
+}
+
+void Scanner::setupKeywords() {
+    keywords["and"] = AND;
+    keywords["class"] = CLASS;
+    keywords["else"] = ELSE;
+    keywords["false"] = FALSE;
+    keywords["for"] = FOR;
+    keywords["fun"] = FUN;
+    keywords["if"] = IF;
+    keywords["nil"] = NIL;
+    keywords["or"] = OR;
+    keywords["print"] = PRINT;
+    keywords["return"] = RETURN;
+    keywords["super"] = SUPER;
+    keywords["this"] = THIS;
+    keywords["true"] = TRUE;
+    keywords["var"] = VAR;
+    keywords["while"] = WHILE; 
+}
 
 std::string tokenTypeToString(TokenType type) {
     switch(type) {
@@ -595,80 +841,6 @@ std::string tokenTypeToString(TokenType type) {
     }
     return "unknow token type";
 }
-
-void runFile(std::string path) {
-    std::ifstream input(path);
-    if(!input.good()) {
-        std::cerr << "runFile(path) error\nFailed to open " << path << std::endl;
-        return;
-    }
-    std::stringstream buffer;
-    buffer << input.rdbuf();
-    run(buffer.str());
-}
-
-void runPrompt() {
-    std::string userInput;
-    while(true) {
-        std::cout << "> ";
-        if(!std::getline(std::cin, userInput)) break;
-        run(userInput);
-        hadError = false;
-    }
-}
-
-void run(std::string source) {
-    if(hadError) return;
-    Scanner scanner(source);
-    auto tokens = scanner.scanTokens();
-    Parser parser(tokens);
-    std::unique_ptr<Expr> expr = parser.parse();
-    // Stop if there was a syntax error 
-    if(hadError) return;
-
-    std::cout << AstPrinter().print(std::move(expr)) << std::endl;
-}
-
-void error(Token token, string message) {
-    if (token.type == EOF_) {
-        report(token.line, " at end", message);
-    } else {
-        report(token.line, " at '" + token.lexme + "'", message);
-    }
-}
-void error(int line, string message) {
-    report(line, "", message);
-}
-
-void report(int line, string where, string message) {
-    cerr << "[line " << line << "] Error " << where << ": " << message << endl;
-    hadError = true;
-}
-
-void report(Token token, string where, string message) {
-    cerr << "[line " << token.line << "] Error " << where << ": " << message << endl;
-    hadError = true;
-}
-
-void Scanner::setupKeywords() {
-    keywords["and"] = AND;
-    keywords["class"] = CLASS;
-    keywords["else"] = ELSE;
-    keywords["false"] = FALSE;
-    keywords["for"] = FOR;
-    keywords["fun"] = FUN;
-    keywords["if"] = IF;
-    keywords["nil"] = NIL;
-    keywords["or"] = OR;
-    keywords["print"] = PRINT;
-    keywords["return"] = RETURN;
-    keywords["super"] = SUPER;
-    keywords["this"] = THIS;
-    keywords["true"] = TRUE;
-    keywords["var"] = VAR;
-    keywords["while"] = WHILE; 
-}
-
 
 string substring(string str, int start, int end) {
     string res = "";
