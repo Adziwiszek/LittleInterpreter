@@ -271,9 +271,11 @@ class Binop;
 class Unop;
 class Grouping;
 class LiteralExpr;
+class Variable;
 class Stmt;
 class ExprStmt;
 class PrintStmt;
+class VarStmt;
 
 // I'm using std::any instead of templates because templates don't work with
 // virtual functions:(
@@ -283,8 +285,10 @@ public:
     virtual Value visitUnop(const Unop* expr) const = 0;
     virtual Value visitGrouping(const Grouping* expr) const = 0;
     virtual Value visitLiteralExpr(const LiteralExpr* expr) const = 0;
+    virtual Value visitVariable(const Variable* expr) const = 0;
     virtual Value visitExprStmt(const ExprStmt* exprstmt) const = 0;
     virtual Value visitPrintStmt(const PrintStmt* exprstmt) const = 0;
+    virtual Value visitVarStmt(const VarStmt* exprstmt) = 0;
 };
 
 class Stmt {
@@ -313,6 +317,19 @@ public:
     }
 };
 
+class VarStmt : public Stmt {
+public:
+    std::shared_ptr<Expr> initializer;
+    Token name;
+    VarStmt(std::shared_ptr<Expr> expr, Token name) :
+        initializer {std::move(expr)}, name { name } {}
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
+        return visitor->visitVarStmt(this);
+    }
+};
+
+
 class Expr {
 public:
     virtual Value accept(const Visitor* visitor) const = 0;
@@ -320,25 +337,15 @@ public:
 };
 
 
-/*
-expression     → equality ;
-equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-term           → factor ( ( "-" | "+" ) factor )* ;
-factor         → unary ( ( "/" | "*" ) unary )* ;
-unary          → ( "!" | "-" ) unary
-               | primary ;
-primary        → NUMBER | STRING | "true" | "false" | "nil"
-               | "(" expression ")" ;
-
-program        → statement* EOF ;
-
-statement      → exprStmt
-               | printStmt ;
-
-exprStmt       → expression ";" ;
-printStmt      → "print" expression ";" ;
- */
+class Variable : public Expr {
+public:
+    Token name;
+    Variable(Token name) : name { name } {}
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
+        return visitor->visitVariable(this);
+    }
+};
 
 class Binop : public Expr {
 public:
@@ -348,7 +355,6 @@ public:
     Binop(std::shared_ptr<Expr> left, Token op, std::shared_ptr<Expr> right)
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
-    virtual ~Binop() override { }
     virtual Value accept(const Visitor* visitor) const override {
         if(!visitor) return Nil();
         return visitor->visitBinop(this);
@@ -515,6 +521,10 @@ class Parser {
             }
         }
 
+        if(match(IDENTIFIER)) {
+            return std::make_unique<Variable>(previous());
+        }
+
         if(match(LEFT_PAREN)) {
             auto expr = expression();
             consume(RIGHT_PAREN, "Expect ')' after expression.");
@@ -605,6 +615,26 @@ class Parser {
         if(match(PRINT)) return printStatement();
         return expressionStatement();
     }
+    
+    std::shared_ptr<Stmt> declaration() {
+        try {
+            if(match(VAR)) return varDeclaration();
+            return statement();
+        } catch(ParseError error) {
+            synchronize();
+            return nullptr;
+        }
+    }
+
+    std::shared_ptr<Stmt> varDeclaration() {
+        Token name = consume(IDENTIFIER, "Expected a variable name.");
+        std::shared_ptr<Expr> initializer = nullptr;
+        if(match(EQUAL)) {
+            initializer = expression();
+        }
+        consume(SEMICOLON, "Expected ';' after variable declaration.");
+        return std::make_shared<VarStmt>(std::move(initializer), name);
+    }
 
 public:
     Parser(std::vector<Token> tokens) :
@@ -613,16 +643,32 @@ public:
     std::vector<std::shared_ptr<Stmt>> parse() {
         std::vector<std::shared_ptr<Stmt>> statements;
         while(!isAtEnd()) {
-            statements.push_back(statement());
+            statements.push_back(declaration());
         }
         return statements;
     }
 };
 
 // Interpreter ----------------------------------------------------------------
+class Environment {
+    std::map<string, Value> values;
+public:
+    Environment() : values {} {}
+    void define(string name, Value value) {
+        values[name] = value;
+    }
+    Value get(Token name) const {
+        if(values.contains(name.lexme)) {
+            return values[name.lexme];
+        }
+        throw RuntimeError(name, "Undefined variable '" + name.lexme + "'."); 
+    }
+};
 
 
 class Interpreter : public Visitor {
+    Environment environment;
+
     void checkNumberOperand(Token op, Value& val) const {
         if(std::holds_alternative<float>(val)) return;
         throw RuntimeError(op, "Operand must be a number.");
@@ -749,17 +795,29 @@ public:
         evaluate(&*exprstmt->expr);
         return Nil();
     }
-    virtual Value visitPrintStmt(const PrintStmt* exprstmt) const override {
-        Value res = evaluate(&*exprstmt->expr);
+    virtual Value visitPrintStmt(const PrintStmt* varstmt) const override {
+        Value res = evaluate(&*varstmt->expr);
         std::cout << valueToString(res) << std::endl;
         return Nil();
     }
+    virtual Value visitVarStmt(const VarStmt* stmt) override {
+        Value val = Nil();
+        if(stmt->initializer) {
+            val = evaluate(&*stmt->initializer);
+        }
+        environment.define(stmt->name.lexme, val);
+        return val;
+    }
+
+    Interpreter() : environment {} {}
+
     Value evaluate(const Expr* expr) const {
         return expr->accept(this);
     }
     void execute(const std::shared_ptr<Stmt>& stmt) {
         stmt->accept(this);
     }
+
     void interpret(const std::vector<std::shared_ptr<Stmt>>& program) {
         try {
             for(const auto& stmt: program) {
