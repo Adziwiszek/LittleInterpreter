@@ -1,1 +1,3 @@
-2 + 4 * 42 != "asbb"
+print "Hello, World!";
+print 42;
+print 69;

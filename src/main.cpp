@@ -271,15 +271,46 @@ class Binop;
 class Unop;
 class Grouping;
 class LiteralExpr;
+class Stmt;
+class ExprStmt;
+class PrintStmt;
 
 // I'm using std::any instead of templates because templates don't work with
 // virtual functions:(
 class Visitor {
 public:
-    virtual Value visitBinop(const Binop* binop) const = 0;
-    virtual Value visitUnop(const Unop* unop) const = 0;
-    virtual Value visitGrouping(const Grouping* grouping) const = 0;
-    virtual Value visitLiteralExpr(const LiteralExpr* literalExpr) const = 0;
+    virtual Value visitBinop(const Binop* expr) const = 0;
+    virtual Value visitUnop(const Unop* expr) const = 0;
+    virtual Value visitGrouping(const Grouping* expr) const = 0;
+    virtual Value visitLiteralExpr(const LiteralExpr* expr) const = 0;
+    virtual Value visitExprStmt(const ExprStmt* exprstmt) const = 0;
+    virtual Value visitPrintStmt(const PrintStmt* exprstmt) const = 0;
+};
+
+class Stmt {
+public:
+    virtual ~Stmt() = default;
+    virtual Value accept(const Visitor* visitor) const = 0;
+};
+
+class ExprStmt : public Stmt {
+public:
+    std::shared_ptr<Expr> expr;
+    ExprStmt(std::shared_ptr<Expr> expr) : expr {std::move(expr)} {}
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
+        return visitor->visitExprStmt(this);
+    }
+};
+
+class PrintStmt : public Stmt {
+public:
+    std::shared_ptr<Expr> expr;
+    PrintStmt(std::shared_ptr<Expr> expr) : expr {std::move(expr)} {}
+    virtual Value accept(const Visitor* visitor) const override {
+        if(!visitor) return Nil();
+        return visitor->visitPrintStmt(this);
+    }
 };
 
 class Expr {
@@ -299,6 +330,14 @@ unary          → ( "!" | "-" ) unary
                | primary ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
+
+program        → statement* EOF ;
+
+statement      → exprStmt
+               | printStmt ;
+
+exprStmt       → expression ";" ;
+printStmt      → "print" expression ";" ;
  */
 
 class Binop : public Expr {
@@ -550,16 +589,33 @@ class Parser {
         }
     }
 
+    std::shared_ptr<Stmt> printStatement() {
+        auto expr = expression();
+        consume(SEMICOLON, "Expected ';' after a value.");
+        return std::make_shared<PrintStmt>(std::move(expr));
+    }
+
+    std::shared_ptr<Stmt> expressionStatement() {
+        auto expr = expression();
+        consume(SEMICOLON, "Expected ';' after expression.");
+        return std::make_shared<ExprStmt>(std::move(expr));
+    }
+
+    std::shared_ptr<Stmt> statement() {
+        if(match(PRINT)) return printStatement();
+        return expressionStatement();
+    }
+
 public:
     Parser(std::vector<Token> tokens) :
         tokens { tokens }, current { 0 } {}
 
-    std::unique_ptr<Expr> parse() {
-        try {
-            return expression();
-        } catch(ParseError error) {
-            return nullptr;
+    std::vector<std::shared_ptr<Stmt>> parse() {
+        std::vector<std::shared_ptr<Stmt>> statements;
+        while(!isAtEnd()) {
+            statements.push_back(statement());
         }
+        return statements;
     }
 };
 
@@ -689,13 +745,26 @@ public:
     virtual Value visitLiteralExpr(const LiteralExpr* expr) const override {
         return expr->value->value;
     }
+    virtual Value visitExprStmt(const ExprStmt* exprstmt) const override {
+        evaluate(&*exprstmt->expr);
+        return Nil();
+    }
+    virtual Value visitPrintStmt(const PrintStmt* exprstmt) const override {
+        Value res = evaluate(&*exprstmt->expr);
+        std::cout << valueToString(res) << std::endl;
+        return Nil();
+    }
     Value evaluate(const Expr* expr) const {
         return expr->accept(this);
     }
-    void interpret(const std::shared_ptr<Expr> expr) {
+    void execute(const std::shared_ptr<Stmt>& stmt) {
+        stmt->accept(this);
+    }
+    void interpret(const std::vector<std::shared_ptr<Stmt>>& program) {
         try {
-            Value value = evaluate(&*expr); 
-            std::cout << valueToString(value) << std::endl;
+            for(const auto& stmt: program) {
+                execute(stmt);
+            }
         } catch(RuntimeError error) {
             runtimeError(error); 
         }
@@ -744,12 +813,12 @@ void run(std::string source) {
     auto tokens = scanner.scanTokens();
 
     Parser parser(tokens);
-    std::shared_ptr<Expr> expr = parser.parse();
+    std::vector<std::shared_ptr<Stmt>> program = parser.parse();
     // Stop if there was a syntax error 
     if(hadError) return;
 
     Interpreter interpreter; 
-    interpreter.interpret(expr);
+    interpreter.interpret(program);
 }
 
 void error(Token token, string message) {
