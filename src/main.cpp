@@ -271,7 +271,7 @@ class Binop;
 class Unop;
 class Grouping;
 class LiteralExpr;
-class Variable;
+class VariableExpr;
 class Stmt;
 class ExprStmt;
 class PrintStmt;
@@ -281,27 +281,27 @@ class VarStmt;
 // virtual functions:(
 class Visitor {
 public:
-    virtual Value visitBinop(const Binop* expr) const = 0;
-    virtual Value visitUnop(const Unop* expr) const = 0;
-    virtual Value visitGrouping(const Grouping* expr) const = 0;
-    virtual Value visitLiteralExpr(const LiteralExpr* expr) const = 0;
-    virtual Value visitVariable(const Variable* expr) const = 0;
-    virtual Value visitExprStmt(const ExprStmt* exprstmt) const = 0;
-    virtual Value visitPrintStmt(const PrintStmt* exprstmt) const = 0;
-    virtual Value visitVarStmt(const VarStmt* exprstmt) = 0;
+    virtual Value visitBinop(Binop* expr) = 0;
+    virtual Value visitUnop(Unop* expr) = 0;
+    virtual Value visitGrouping(Grouping* expr) = 0;
+    virtual Value visitLiteralExpr(LiteralExpr* expr) = 0;
+    virtual Value visitVariableExpr(VariableExpr* expr) = 0;
+    virtual Value visitExprStmt(ExprStmt* exprstmt) = 0;
+    virtual Value visitPrintStmt(PrintStmt* exprstmt) = 0;
+    virtual Value visitVarStmt(VarStmt* exprstmt) = 0;
 };
 
 class Stmt {
 public:
     virtual ~Stmt() = default;
-    virtual Value accept(const Visitor* visitor) const = 0;
+    virtual Value accept(Visitor* visitor) = 0;
 };
 
 class ExprStmt : public Stmt {
 public:
     std::shared_ptr<Expr> expr;
     ExprStmt(std::shared_ptr<Expr> expr) : expr {std::move(expr)} {}
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitExprStmt(this);
     }
@@ -311,7 +311,7 @@ class PrintStmt : public Stmt {
 public:
     std::shared_ptr<Expr> expr;
     PrintStmt(std::shared_ptr<Expr> expr) : expr {std::move(expr)} {}
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitPrintStmt(this);
     }
@@ -323,7 +323,7 @@ public:
     Token name;
     VarStmt(std::shared_ptr<Expr> expr, Token name) :
         initializer {std::move(expr)}, name { name } {}
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitVarStmt(this);
     }
@@ -332,18 +332,18 @@ public:
 
 class Expr {
 public:
-    virtual Value accept(const Visitor* visitor) const = 0;
+    virtual Value accept(Visitor* visitor) = 0;
     virtual ~Expr() = default;
 };
 
 
-class Variable : public Expr {
+class VariableExpr : public Expr {
 public:
     Token name;
-    Variable(Token name) : name { name } {}
-    virtual Value accept(const Visitor* visitor) const override {
+    VariableExpr(Token name) : name { name } {}
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
-        return visitor->visitVariable(this);
+        return visitor->visitVariableExpr(this);
     }
 };
 
@@ -355,7 +355,7 @@ public:
     Binop(std::shared_ptr<Expr> left, Token op, std::shared_ptr<Expr> right)
         : left { std::move(left) }, right { std::move(right) }, op { op }
     { }
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitBinop(this);
     }
@@ -369,7 +369,7 @@ public:
         : expr { std::move(expr) }, op { op }
     { }
     virtual ~Unop() override { }
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitUnop(this);
     }
@@ -380,7 +380,7 @@ public:
     std::shared_ptr<Expr> expr;
     Grouping(std::shared_ptr<Expr> expr) : expr { std::move(expr) } {}
     virtual ~Grouping() override { }
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitGrouping(this);
     }
@@ -391,7 +391,7 @@ public:
     std::shared_ptr<Literal> value;
     LiteralExpr(std::shared_ptr<Literal> value) : value { std::move(value) } {}
     virtual ~LiteralExpr() override { }
-    virtual Value accept(const Visitor* visitor) const override {
+    virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitLiteralExpr(this);
     }
@@ -399,7 +399,7 @@ public:
 
 class AstPrinter : public Visitor {
 public:
-    string print(std::shared_ptr<Expr> expr) const {
+    string print(std::shared_ptr<Expr> expr) {
         std::any result = expr->accept(this);
         if(result.type() == typeid(std::string)) {
             return std::any_cast<string>(result);
@@ -408,28 +408,28 @@ public:
                     in AstPrinter!!!");
         }
     }
-    virtual Value visitBinop(const Binop* binop) const override {
+    virtual Value visitBinop(Binop* binop) override {
         return parenthesize(binop->op.lexme, binop->left, binop->right);
     }
-    virtual Value visitUnop(const Unop* unop) const override {
+    virtual Value visitUnop(Unop* unop) override {
         return parenthesize(unop->op.lexme, unop->expr);        
     }
-    virtual Value visitGrouping(const Grouping* expr) const override {
+    virtual Value visitGrouping(Grouping* expr) override {
         return parenthesize("group", expr->expr);
     }
-    virtual Value visitLiteralExpr(const LiteralExpr* expr) const override {
+    virtual Value visitLiteralExpr(LiteralExpr* expr) override {
         if(!expr->value) return "nil";
         return expr->value->toString();
     }
 
     template <typename... Exprs>
     void processExprsHelper(std::ostringstream& oss, 
-            const std::shared_ptr<Exprs>&... exprs) const {
+            const std::shared_ptr<Exprs>&... exprs) {
         ((oss << " " << std::any_cast<std::string>(exprs->accept(this))), ...);
     }
     template <typename... Exprs>
     string parenthesize(const string& name, 
-            const std::shared_ptr<Exprs>&... exprs) const {
+            const std::shared_ptr<Exprs>&... exprs) {
         std::ostringstream oss;
         oss << "(" << name;
         processExprsHelper(oss, exprs...);
@@ -522,7 +522,7 @@ class Parser {
         }
 
         if(match(IDENTIFIER)) {
-            return std::make_unique<Variable>(previous());
+            return std::make_unique<VariableExpr>(previous());
         }
 
         if(match(LEFT_PAREN)) {
@@ -657,7 +657,7 @@ public:
     void define(string name, Value value) {
         values[name] = value;
     }
-    Value get(Token name) const {
+    Value get(Token name) {
         if(values.contains(name.lexme)) {
             return values[name.lexme];
         }
@@ -719,7 +719,7 @@ class Interpreter : public Visitor {
         return false;
     }
 public:
-    virtual Value visitBinop(const Binop* expr) const override {
+    virtual Value visitBinop(Binop* expr) override {
         Value left = evaluate(&*expr->left);
         Value right = evaluate(&*expr->right);
         auto executeBinop = 
@@ -770,7 +770,7 @@ public:
         }
         return Nil();
     }
-    virtual Value visitUnop(const Unop* expr) const override {
+    virtual Value visitUnop(Unop* expr) override {
         Value right = evaluate(&*expr->expr);
         switch(expr->op.type) {
             case BANG: {
@@ -785,22 +785,22 @@ public:
         }
         return Nil();
     }
-    virtual Value visitGrouping(const Grouping* expr) const override {
+    virtual Value visitGrouping(Grouping* expr) override {
         return evaluate(expr);
     }
-    virtual Value visitLiteralExpr(const LiteralExpr* expr) const override {
+    virtual Value visitLiteralExpr(LiteralExpr* expr) override {
         return expr->value->value;
     }
-    virtual Value visitExprStmt(const ExprStmt* exprstmt) const override {
+    virtual Value visitExprStmt(ExprStmt* exprstmt) override {
         evaluate(&*exprstmt->expr);
         return Nil();
     }
-    virtual Value visitPrintStmt(const PrintStmt* varstmt) const override {
+    virtual Value visitPrintStmt(PrintStmt* varstmt) override {
         Value res = evaluate(&*varstmt->expr);
         std::cout << valueToString(res) << std::endl;
         return Nil();
     }
-    virtual Value visitVarStmt(const VarStmt* stmt) override {
+    virtual Value visitVarStmt(VarStmt* stmt) override {
         Value val = Nil();
         if(stmt->initializer) {
             val = evaluate(&*stmt->initializer);
@@ -808,10 +808,13 @@ public:
         environment.define(stmt->name.lexme, val);
         return val;
     }
+    virtual Value visitVariableExpr(VariableExpr* var) override {
+        return environment.get(var->name);
+    }
 
     Interpreter() : environment {} {}
 
-    Value evaluate(const Expr* expr) const {
+    Value evaluate(Expr* expr) {
         return expr->accept(this);
     }
     void execute(const std::shared_ptr<Stmt>& stmt) {
