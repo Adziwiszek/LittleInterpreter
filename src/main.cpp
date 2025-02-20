@@ -79,11 +79,11 @@ enum TokenType {
 class Token {
 public:
     TokenType type;
-    std::string lexme;
+    std::string lexeme;
     std::optional<Literal> literal;
     int line;
-    Token(TokenType type_, std::string lexme_, int line_, std::optional<Literal> literal_);
-    Token(TokenType type_, std::string lexme_, int line_);
+    Token(TokenType type_, std::string lexeme_, int line_, std::optional<Literal> literal_);
+    Token(TokenType type_, std::string lexeme_, int line_);
     std::string toString() const; 
 };
 
@@ -114,16 +114,16 @@ float strToFloat(string str);
 // Token ----------------------------------------------------------------------
 std::string tokenTypeToString(TokenType type);
 
-Token::Token(TokenType type_, std::string lexme_, int line_, std::optional<Literal> literal_) :
-    type {type_}, lexme {lexme_}, line {line_}, literal {literal_}
+Token::Token(TokenType type_, std::string lexeme_, int line_, std::optional<Literal> literal_) :
+    type {type_}, lexeme {lexeme_}, line {line_}, literal {literal_}
 {}
-Token::Token(TokenType type_, std::string lexme_, int line_) :
-    Token(type_, lexme_, line_, std::nullopt) 
+Token::Token(TokenType type_, std::string lexeme_, int line_) :
+    Token(type_, lexeme_, line_, std::nullopt) 
 {}
 
 std::string Token::toString() const {
     string literalStr = literal.has_value() ? literal->toString() : "";
-    return tokenTypeToString(type) + " " + lexme + " " + literalStr;
+    return tokenTypeToString(type) + " " + lexeme + " " + literalStr;
 }
 // Scanner ---------------------------------------------------------------------
 class Scanner {
@@ -272,10 +272,13 @@ class Unop;
 class Grouping;
 class LiteralExpr;
 class VariableExpr;
+class Assign;
+
 class Stmt;
 class ExprStmt;
 class PrintStmt;
 class VarStmt;
+class BlockStmt;
 
 // I'm using std::any instead of templates because templates don't work with
 // virtual functions:(
@@ -285,16 +288,31 @@ public:
     virtual Value visitUnop(Unop* expr) = 0;
     virtual Value visitGrouping(Grouping* expr) = 0;
     virtual Value visitLiteralExpr(LiteralExpr* expr) = 0;
+    virtual Value visitAssign(Assign* expr) = 0;
     virtual Value visitVariableExpr(VariableExpr* expr) = 0;
     virtual Value visitExprStmt(ExprStmt* exprstmt) = 0;
-    virtual Value visitPrintStmt(PrintStmt* exprstmt) = 0;
-    virtual Value visitVarStmt(VarStmt* exprstmt) = 0;
+    virtual Value visitPrintStmt(PrintStmt* print) = 0;
+    virtual Value visitVarStmt(VarStmt* var) = 0;
+    virtual Value visitBlockStmt(BlockStmt* block) = 0;
 };
 
 class Stmt {
 public:
     virtual ~Stmt() = default;
     virtual Value accept(Visitor* visitor) = 0;
+};
+
+class BlockStmt : public Stmt {
+public:
+    std::vector<std::shared_ptr<Stmt>> statements;
+    BlockStmt() : statements {} {}
+    BlockStmt(const std::vector<std::shared_ptr<Stmt>>& otherStatements)
+        : statements(otherStatements) {}
+    BlockStmt(const BlockStmt& other) { BlockStmt(other.statements); }
+    virtual Value accept(Visitor* visitor) override {
+        if(!visitor) return Nil();
+        return visitor->visitBlockStmt(this);
+    }
 };
 
 class ExprStmt : public Stmt {
@@ -336,6 +354,17 @@ public:
     virtual ~Expr() = default;
 };
 
+class Assign : public Expr {
+public:
+    Token name;
+    std::shared_ptr<Expr> value;
+    Assign(Token name, std::shared_ptr<Expr> expr)
+        : name { name }, value { std::move(expr) } { }
+    virtual Value accept(Visitor* visitor) override {
+        if(!visitor) return Nil();
+        return visitor->visitAssign(this);
+    }
+};
 
 class VariableExpr : public Expr {
 public:
@@ -409,10 +438,10 @@ public:
         }
     }
     virtual Value visitBinop(Binop* binop) override {
-        return parenthesize(binop->op.lexme, binop->left, binop->right);
+        return parenthesize(binop->op.lexeme, binop->left, binop->right);
     }
     virtual Value visitUnop(Unop* unop) override {
-        return parenthesize(unop->op.lexme, unop->expr);        
+        return parenthesize(unop->op.lexeme, unop->expr);        
     }
     virtual Value visitGrouping(Grouping* expr) override {
         return parenthesize("group", expr->expr);
@@ -450,11 +479,29 @@ class Parser {
     std::vector<Token> tokens;
     int current;
 
-    std::unique_ptr<Expr> expression() {
-        return equality();
+    std::shared_ptr<Expr> expression() {
+        //return equality();
+        return assignment();
     }
 
-    std::unique_ptr<Expr> equality() {
+    std::shared_ptr<Expr> assignment() {
+        std::shared_ptr<Expr> expr = equality();
+
+        if(match(EQUAL)) {
+            Token equals = previous();
+            std::shared_ptr<Expr> value = assignment();
+
+            if(VariableExpr* v = dynamic_cast<VariableExpr*>(&*expr)) {
+                Token name = v->name;
+                return std::make_shared<Assign>(name, value);
+            }
+            error(equals, "Invalid assignment target");
+        }
+
+        return expr;
+    }
+
+    std::shared_ptr<Expr> equality() {
         auto expr = comparison();
         while(match(BANG_EQUAL, EQUAL_EQUAL)) {
             Token op = previous();
@@ -464,7 +511,7 @@ class Parser {
         return expr;
     }
 
-    std::unique_ptr<Expr> comparison() {
+    std::shared_ptr<Expr> comparison() {
         auto expr = term();
         while(match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
             Token op = previous();
@@ -474,7 +521,7 @@ class Parser {
         return expr;
     }
 
-    std::unique_ptr<Expr> term() {
+    std::shared_ptr<Expr> term() {
         auto expr = factor();
         while(match(MINUS, PLUS)) {
             Token op = previous();
@@ -484,7 +531,7 @@ class Parser {
         return expr;
     }
 
-    std::unique_ptr<Expr> factor() {
+    std::shared_ptr<Expr> factor() {
         auto expr = unary();
         while(match(SLASH, STAR)) {
             Token op = previous();
@@ -494,7 +541,7 @@ class Parser {
         return expr;
     }
     
-    std::unique_ptr<Expr> unary() {
+    std::shared_ptr<Expr> unary() {
         if(match(BANG, MINUS)) {
             Token op = previous();
             auto right = unary();
@@ -503,7 +550,7 @@ class Parser {
         return primary();
     }
 
-    std::unique_ptr<Expr> primary() {
+    std::shared_ptr<Expr> primary() {
         auto makeLit = []<typename T>(T t){
             return std::make_unique<LiteralExpr>(
                     std::make_shared<Literal>(t));
@@ -613,7 +660,17 @@ class Parser {
 
     std::shared_ptr<Stmt> statement() {
         if(match(PRINT)) return printStatement();
+        if(match(LEFT_BRACE)) return std::make_shared<BlockStmt>(block());
         return expressionStatement();
+    }
+
+    std::vector<std::shared_ptr<Stmt>> block() {
+        std::vector<std::shared_ptr<Stmt>> statements;
+        while(!check(RIGHT_BRACE) && !isAtEnd()) {
+            statements.push_back(declaration());
+        }
+        consume(RIGHT_BRACE, "Expect '}' after end of a block");
+        return statements;
     }
     
     std::shared_ptr<Stmt> declaration() {
@@ -652,22 +709,37 @@ public:
 // Interpreter ----------------------------------------------------------------
 class Environment {
     std::map<string, Value> values;
+    std::shared_ptr<Environment> enclosing;
 public:
-    Environment() : values {} {}
+    Environment(std::shared_ptr<Environment> enclosing) 
+        : values {}, enclosing(std::move(enclosing)) {}
+    Environment() : enclosing(nullptr) { }
     void define(string name, Value value) {
         values[name] = value;
     }
-    Value get(Token name) {
-        if(values.contains(name.lexme)) {
-            return values[name.lexme];
+    Value get(const Token& name) const {
+        if(values.contains(name.lexeme)) {
+            return values.at(name.lexeme);
         }
-        throw RuntimeError(name, "Undefined variable '" + name.lexme + "'."); 
+        if(enclosing) return enclosing->get(name);
+        throw RuntimeError(name, "Undefined variable '" + name.lexeme + "'."); 
+    }
+    void assign(Token name, Value value) {
+        if(values.contains(name.lexeme)) {
+            values[name.lexeme] = value;
+            return;
+        }
+        if(enclosing) {
+            enclosing->assign(name, value);
+            return;
+        }
+        throw RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
     }
 };
 
 
 class Interpreter : public Visitor {
-    Environment environment;
+    std::shared_ptr<Environment> environment;
 
     void checkNumberOperand(Token op, Value& val) const {
         if(std::holds_alternative<float>(val)) return;
@@ -717,6 +789,18 @@ class Interpreter : public Visitor {
         //reportDifferentTypesOperands();
         // for now two different types are always not equal
         return false;
+    }
+    void executeBlock(const std::vector<std::shared_ptr<Stmt>>& statements,
+            std::shared_ptr<Environment> env) {
+        std::shared_ptr<Environment> prevEnv = std::move(this->environment);
+        try {
+            this->environment = env;
+            for(const auto& stmt: statements) {
+                execute(stmt);
+            }
+        } catch(std::runtime_error e) {
+        }
+        this->environment = prevEnv;
     }
 public:
     virtual Value visitBinop(Binop* expr) override {
@@ -805,14 +889,24 @@ public:
         if(stmt->initializer) {
             val = evaluate(&*stmt->initializer);
         }
-        environment.define(stmt->name.lexme, val);
+        environment->define(stmt->name.lexeme, val);
         return val;
     }
     virtual Value visitVariableExpr(VariableExpr* var) override {
-        return environment.get(var->name);
+        return environment->get(var->name);
+    }
+    virtual Value visitAssign(Assign* expr) override {
+        Value value = evaluate(&*expr->value);
+        environment->assign(expr->name, value);
+        return value;
+    }
+    virtual Value visitBlockStmt(BlockStmt* stmt) override {
+        executeBlock(stmt->statements, std::make_shared<Environment>(environment));
+        return Nil();
     }
 
-    Interpreter() : environment {} {}
+
+    Interpreter() : environment { std::make_shared<Environment>() } {}
 
     Value evaluate(Expr* expr) {
         return expr->accept(this);
@@ -886,7 +980,7 @@ void error(Token token, string message) {
     if (token.type == EOF_) {
         report(token.line, " at end", message);
     } else {
-        report(token.line, " at '" + token.lexme + "'", message);
+        report(token.line, " at '" + token.lexeme + "'", message);
     }
 }
 void error(int line, string message) {
