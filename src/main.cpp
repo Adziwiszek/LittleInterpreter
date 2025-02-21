@@ -20,7 +20,13 @@ string valueToString(Value value) {
     if(std::holds_alternative<string>(value)) {
         return std::get<string>(value);
     } else if(std::holds_alternative<float>(value)) {
-        return std::to_string(std::get<float>(value));
+        float f = std::get<float>(value);
+        int c;
+        if(std::abs(f - int(f)) == 0.0) {
+            int c = f;
+            return std::to_string(c);
+        }
+        return std::to_string(f);
     } else if(std::holds_alternative<bool>(value)) {
         return std::get<bool>(value) ? "1" : "0";
     } else if(std::holds_alternative<Nil>(value)) {
@@ -273,12 +279,15 @@ class Grouping;
 class LiteralExpr;
 class VariableExpr;
 class Assign;
+class Logical;
 
 class Stmt;
 class ExprStmt;
 class PrintStmt;
 class VarStmt;
 class BlockStmt;
+class IfStmt;
+class WhileStmt;
 
 // I'm using std::any instead of templates because templates don't work with
 // virtual functions:(
@@ -290,17 +299,51 @@ public:
     virtual Value visitLiteralExpr(LiteralExpr* expr) = 0;
     virtual Value visitAssign(Assign* expr) = 0;
     virtual Value visitVariableExpr(VariableExpr* expr) = 0;
+    virtual Value visitLogical(Logical* expr) = 0;
+
     virtual Value visitExprStmt(ExprStmt* exprstmt) = 0;
     virtual Value visitPrintStmt(PrintStmt* print) = 0;
     virtual Value visitVarStmt(VarStmt* var) = 0;
     virtual Value visitBlockStmt(BlockStmt* block) = 0;
+    virtual Value visitIfStmt(IfStmt* stmt) = 0;
+    virtual Value visitWhileStmt(WhileStmt* stmt) = 0;
 };
+
 
 class Stmt {
 public:
     virtual ~Stmt() = default;
     virtual Value accept(Visitor* visitor) = 0;
 };
+
+class WhileStmt : public Stmt {
+public:
+    std::shared_ptr<Expr> condition;
+    std::shared_ptr<Stmt> body;
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<Stmt> body)
+        : condition{ std::move(condition) }, body{ std::move(body) } {}
+    virtual Value accept(Visitor* visitor) override {
+        if(!visitor) return Nil();
+        return visitor->visitWhileStmt(this);
+    }
+};
+
+class IfStmt : public Stmt {
+public:
+    std::shared_ptr<Expr> condition;
+    std::shared_ptr<Stmt> thenBranch;
+    std::shared_ptr<Stmt> elseBranch;
+    IfStmt(std::shared_ptr<Expr>& condition, 
+        std::shared_ptr<Stmt>& thenBranch,
+        std::shared_ptr<Stmt>& elseBranch)
+        : condition(std::move(condition)),
+        thenBranch(std::move(thenBranch)),
+        elseBranch(std::move(elseBranch)) {}
+    virtual Value accept(Visitor* visitor) override {
+        return visitor->visitIfStmt(this);
+    }
+};
+    
 
 class BlockStmt : public Stmt {
 public:
@@ -309,6 +352,10 @@ public:
     BlockStmt(const std::vector<std::shared_ptr<Stmt>>& otherStatements)
         : statements(otherStatements) {}
     BlockStmt(const BlockStmt& other) { BlockStmt(other.statements); }
+    template <typename... Stmts>
+    BlockStmt(const std::shared_ptr<Stmts>&... stmts) : BlockStmt() {
+        ((statements.push_back(std::move(stmts))), ...);
+    }
     virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
         return visitor->visitBlockStmt(this);
@@ -352,6 +399,22 @@ class Expr {
 public:
     virtual Value accept(Visitor* visitor) = 0;
     virtual ~Expr() = default;
+};
+
+class Logical : public Expr {
+public:
+    std::shared_ptr<Expr> left;
+    Token op;
+    std::shared_ptr<Expr> right;
+    Logical(std::shared_ptr<Expr> left,
+            Token op,
+            std::shared_ptr<Expr> right)
+        : left { std::move(left) }, op { op }, right { std::move(right) }
+    {}
+    virtual Value accept(Visitor* visitor) override {
+        if(!visitor) return Nil();
+        return visitor->visitLogical(this);
+    }
 };
 
 class Assign : public Expr {
@@ -419,6 +482,10 @@ class LiteralExpr : public Expr {
 public:
     std::shared_ptr<Literal> value;
     LiteralExpr(std::shared_ptr<Literal> value) : value { std::move(value) } {}
+    LiteralExpr(bool b) : value { std::make_shared<Literal>(b) } {}
+    LiteralExpr(float f) : value { std::make_shared<Literal>(f) } {}
+    LiteralExpr(string s) : value { std::make_shared<Literal>(s) } {}
+    LiteralExpr(Nil s) : value { std::make_shared<Literal>(s) } {}
     virtual ~LiteralExpr() override { }
     virtual Value accept(Visitor* visitor) override {
         if(!visitor) return Nil();
@@ -484,8 +551,28 @@ class Parser {
         return assignment();
     }
 
-    std::shared_ptr<Expr> assignment() {
+    std::shared_ptr<Expr> orExpr() {
+        std::shared_ptr<Expr> expr = andExpr();
+        while(match(OR)) {
+            Token op = previous();
+            std::shared_ptr<Expr> right = andExpr();
+            expr = std::make_shared<Logical>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::shared_ptr<Expr> andExpr() {
         std::shared_ptr<Expr> expr = equality();
+        while(match(AND)) {
+            Token op = previous();
+            std::shared_ptr<Expr> right = equality();
+            expr = std::make_shared<Logical>(std::move(expr), op, std::move(right));
+        }
+        return expr;
+    }
+
+    std::shared_ptr<Expr> assignment() {
+        std::shared_ptr<Expr> expr = orExpr();
 
         if(match(EQUAL)) {
             Token equals = previous();
@@ -658,10 +745,81 @@ class Parser {
         return std::make_shared<ExprStmt>(std::move(expr));
     }
 
+    std::shared_ptr<Stmt> whileStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'while'.");
+        std::shared_ptr<Expr> cond = expression();
+        consume(RIGHT_PAREN, "Expect ')' after while condition.");
+        std::shared_ptr<Stmt> body = statement();
+        return std::make_shared<WhileStmt>(std::move(cond), std::move(body));
+    }
+
+    std::shared_ptr<Stmt> forStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'for'.");
+        std::shared_ptr<Stmt> initializer; 
+        if(match(SEMICOLON)) {
+            initializer = nullptr;
+        } else if(match(VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        std::shared_ptr<Expr> condition { nullptr };
+        if(!check(SEMICOLON)) {
+            condition = expression();
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.");
+
+        std::shared_ptr<Expr> increment { nullptr };
+        if(!check(RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(RIGHT_PAREN, "Expect ';' after for clauses");
+
+        std::shared_ptr<Stmt> body = statement();
+
+        if(increment) {
+            body = std::make_shared<BlockStmt>(
+                        body,
+                        std::make_shared<ExprStmt>(increment)
+                    );
+        }
+
+        if(!condition) condition = std::make_shared<LiteralExpr>(true);
+        body = std::make_shared<WhileStmt>(std::move(condition), std::move(body));
+
+        if(initializer) {
+            body = std::make_shared<BlockStmt>(
+                    initializer,
+                    body
+                    );
+        }
+
+        return body;
+    }
+
     std::shared_ptr<Stmt> statement() {
+        if(match(FOR)) return forStatement();
+        if(match(IF)) return ifStatement();
         if(match(PRINT)) return printStatement();
+        if(match(WHILE)) return whileStatement();
         if(match(LEFT_BRACE)) return std::make_shared<BlockStmt>(block());
         return expressionStatement();
+    }
+
+    std::shared_ptr<Stmt> ifStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'if'.");
+        std::shared_ptr<Expr> condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+        std::shared_ptr<Stmt> thenBranch { statement() };
+        std::shared_ptr<Stmt> elseBranch { nullptr };
+        if(match(ELSE)) {
+            elseBranch = statement();
+        }
+        auto ifstmt = std::make_shared<IfStmt>(
+                condition, thenBranch, elseBranch);
+        return ifstmt;
     }
 
     std::vector<std::shared_ptr<Stmt>> block() {
@@ -904,6 +1062,30 @@ public:
         executeBlock(stmt->statements, std::make_shared<Environment>(environment));
         return Nil();
     }
+    virtual Value visitIfStmt(IfStmt* stmt) override {
+        if(isTruthy(evaluate(&*stmt->condition))) {
+            execute(stmt->thenBranch);
+        } else if(stmt->elseBranch) {
+            execute(stmt->elseBranch);
+        }
+        return Nil();
+    }
+    virtual Value visitLogical(Logical* expr) override {
+        Value left = evaluate(&*expr->left);
+        if(expr->op.type == OR) {
+            if(isTruthy(left)) return left;
+        } else if(expr->op.type == AND) {
+            if(!isTruthy(left)) return left;
+        }
+        return evaluate(&*expr->right);
+    }
+    virtual Value visitWhileStmt(WhileStmt* stmt) override {
+        while(isTruthy(evaluate(&*stmt->condition))) {
+            execute(stmt->body);
+        }
+        return Nil();
+    }
+
 
 
     Interpreter() : environment { std::make_shared<Environment>() } {}
