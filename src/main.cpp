@@ -10,6 +10,16 @@
 #include <optional>
 #include <map>
 
+// TODO fix: print (2 + 2); giving seg fault
+//
+// Language goals:
+// functions as 1st citizens
+// simple types
+// one argument functions
+// higher order functions
+// some i/o
+// classes
+
 using std::string, std::cout, std::endl, std::cerr;
 
 struct Nil { Nil() {} };
@@ -71,6 +81,7 @@ enum TokenType {
     EQUAL, EQUAL_EQUAL,
     GREATER, GREATER_EQUAL,
     LESS, LESS_EQUAL,
+    PLUSPLUS, MINUSMINUS,
 
     // Literals.
     IDENTIFIER, STRING, NUMBER,
@@ -163,7 +174,9 @@ public:
             case ',': addToken(COMMA); break;
             case '.': addToken(DOT); break;
             case '-': addToken(MINUS); break;
-            case '+': addToken(PLUS); break;
+            case '+': 
+                addToken(match('+') ? PLUSPLUS : PLUS); 
+                break;
             case '*': addToken(STAR); break; 
             case ';': addToken(SEMICOLON); break;
             case '!':
@@ -516,6 +529,12 @@ public:
                     in AstPrinter!!!");
         }
     }
+    static string print_(std::shared_ptr<Expr> expr) {
+        auto pp = new AstPrinter();
+        Value result = expr->accept(pp);
+        std::cout << valueToString(result) << std::endl;
+        return valueToString(result);
+    }
     virtual Value visitBinop(Binop* binop) override {
         return parenthesize(binop->op.lexeme, binop->left, binop->right);
     }
@@ -544,6 +563,23 @@ public:
         oss << ")";
         return oss.str();
     }
+    virtual Value visitAssign(Assign* expr) override {
+        return parenthesize(expr->name.lexeme, expr->value);
+    }
+    virtual Value visitVariableExpr(VariableExpr* expr) override {
+        return parenthesize(expr->name.lexeme);
+    }
+    virtual Value visitLogical(Logical* expr) override {
+        return parenthesize(expr->op.lexeme, expr->left, expr->right);
+    }
+
+    virtual Value visitExprStmt(ExprStmt* exprstmt) override { return Nil(); }
+    virtual Value visitPrintStmt(PrintStmt* print) override { return Nil(); }
+    virtual Value visitVarStmt(VarStmt* var) override { return Nil(); }
+    virtual Value visitBlockStmt(BlockStmt* block) override { return Nil(); }
+    virtual Value visitIfStmt(IfStmt* stmt) override { return Nil(); }
+    virtual Value visitWhileStmt(WhileStmt* stmt) override { return Nil(); }
+    virtual Value visitBreakStmt(BreakStmt* stmt) override { return Nil(); }
 };
 
 // Parser ---------------------------------------------------------------------
@@ -559,7 +595,6 @@ class Parser {
     int current;
 
     std::shared_ptr<Expr> expression() {
-        //return equality();
         return assignment();
     }
 
@@ -585,7 +620,7 @@ class Parser {
 
     std::shared_ptr<Expr> assignment() {
         std::shared_ptr<Expr> expr = orExpr();
-
+        
         if(match(EQUAL)) {
             Token equals = previous();
             std::shared_ptr<Expr> value = assignment();
@@ -641,7 +676,7 @@ class Parser {
     }
     
     std::shared_ptr<Expr> unary() {
-        if(match(BANG, MINUS)) {
+        if(match(BANG, MINUS, PLUSPLUS, MINUSMINUS)) {
             Token op = previous();
             auto right = unary();
             return std::make_unique<Unop>(op, std::move(right));
@@ -673,6 +708,8 @@ class Parser {
 
         if(match(LEFT_PAREN)) {
             auto expr = expression();
+            //AstPrinter::print_(expr);
+            
             consume(RIGHT_PAREN, "Expect ')' after expression.");
             return std::make_unique<Grouping>(std::move(expr));
         }
@@ -1059,12 +1096,22 @@ public:
                 float val = std::get<float>(right);
                 return -val;
             }
+            case PLUSPLUS: {
+                checkNumberOperand(expr->op, right);
+                float val = std::get<float>(right);
+                return ++val;
+            }
+            case MINUSMINUS: {
+                checkNumberOperand(expr->op, right);
+                float val = std::get<float>(right);
+                return --val;
+            }
             default: break;
         }
         return Nil();
     }
     virtual Value visitGrouping(Grouping* expr) override {
-        return evaluate(expr);
+        return evaluate(&*expr->expr);
     }
     virtual Value visitLiteralExpr(LiteralExpr* expr) override {
         return expr->value->value;
@@ -1159,8 +1206,6 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
-
-
 
 void runFile(std::string path) {
     std::ifstream input(path);
@@ -1284,6 +1329,7 @@ std::string tokenTypeToString(TokenType type) {
         case THIS: return "THIS"; break;
         case TRUE: return "TRUE"; break;
         case VAR: return "VAR"; break;
+        case BREAK: return "BREAK"; break;
         case WHILE: return "WHILE"; break;
         case EOF_: return "EOF_"; break;
     }

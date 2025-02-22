@@ -1,8 +1,2 @@
-var b = 42;
-for(var a = 0; a < 3; a = a + 1) {
-    var b = a + 1;
-    print a;
-    print b;
-    for(;;) {break;}
-}
+var b = (42);
 print b;
