@@ -78,6 +78,7 @@ enum TokenType {
     // Keywords.
     AND, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
     PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
+    BREAK,
 
     EOF_
 };
@@ -288,6 +289,7 @@ class VarStmt;
 class BlockStmt;
 class IfStmt;
 class WhileStmt;
+class BreakStmt;
 
 // I'm using std::any instead of templates because templates don't work with
 // virtual functions:(
@@ -307,6 +309,7 @@ public:
     virtual Value visitBlockStmt(BlockStmt* block) = 0;
     virtual Value visitIfStmt(IfStmt* stmt) = 0;
     virtual Value visitWhileStmt(WhileStmt* stmt) = 0;
+    virtual Value visitBreakStmt(BreakStmt* stmt) = 0;
 };
 
 
@@ -314,6 +317,15 @@ class Stmt {
 public:
     virtual ~Stmt() = default;
     virtual Value accept(Visitor* visitor) = 0;
+};
+
+class BreakStmt : public Stmt {
+public:
+    BreakStmt() {}
+    virtual Value accept(Visitor* visitor) override {
+        if(!visitor) return Nil();
+        return visitor->visitBreakStmt(this);
+    }
 };
 
 class WhileStmt : public Stmt {
@@ -749,7 +761,7 @@ class Parser {
         consume(LEFT_PAREN, "Expect '(' after 'while'.");
         std::shared_ptr<Expr> cond = expression();
         consume(RIGHT_PAREN, "Expect ')' after while condition.");
-        std::shared_ptr<Stmt> body = statement();
+        std::shared_ptr<Stmt> body = statement(true);
         return std::make_shared<WhileStmt>(std::move(cond), std::move(body));
     }
 
@@ -776,7 +788,7 @@ class Parser {
         }
         consume(RIGHT_PAREN, "Expect ';' after for clauses");
 
-        std::shared_ptr<Stmt> body = statement();
+        std::shared_ptr<Stmt> body = statement(true);
 
         if(increment) {
             body = std::make_shared<BlockStmt>(
@@ -798,43 +810,50 @@ class Parser {
         return body;
     }
 
-    std::shared_ptr<Stmt> statement() {
+    std::shared_ptr<Stmt> statement(bool inLoop=false) {
         if(match(FOR)) return forStatement();
-        if(match(IF)) return ifStatement();
+        if(match(IF)) return ifStatement(inLoop);
         if(match(PRINT)) return printStatement();
         if(match(WHILE)) return whileStatement();
-        if(match(LEFT_BRACE)) return std::make_shared<BlockStmt>(block());
+        if(match(LEFT_BRACE)) return std::make_shared<BlockStmt>(block(inLoop));
+        if(match(BREAK)) return breakStatement(inLoop);
         return expressionStatement();
     }
 
-    std::shared_ptr<Stmt> ifStatement() {
+    std::shared_ptr<Stmt> breakStatement(bool inLoop) {
+        if(!inLoop) parserError(previous(), "'break' statement outside of a loop.");
+        consume(SEMICOLON, "Expect ';' after 'break'");
+        return std::make_shared<BreakStmt>();
+    }
+
+    std::shared_ptr<Stmt> ifStatement(bool inLoop) {
         consume(LEFT_PAREN, "Expect '(' after 'if'.");
         std::shared_ptr<Expr> condition = expression();
         consume(RIGHT_PAREN, "Expect ')' after if condition.");
 
-        std::shared_ptr<Stmt> thenBranch { statement() };
+        std::shared_ptr<Stmt> thenBranch { statement(inLoop) };
         std::shared_ptr<Stmt> elseBranch { nullptr };
         if(match(ELSE)) {
-            elseBranch = statement();
+            elseBranch = statement(inLoop);
         }
         auto ifstmt = std::make_shared<IfStmt>(
                 condition, thenBranch, elseBranch);
         return ifstmt;
     }
 
-    std::vector<std::shared_ptr<Stmt>> block() {
+    std::vector<std::shared_ptr<Stmt>> block(bool inLoop) {
         std::vector<std::shared_ptr<Stmt>> statements;
         while(!check(RIGHT_BRACE) && !isAtEnd()) {
-            statements.push_back(declaration());
+            statements.push_back(declaration(inLoop));
         }
         consume(RIGHT_BRACE, "Expect '}' after end of a block");
         return statements;
     }
     
-    std::shared_ptr<Stmt> declaration() {
+    std::shared_ptr<Stmt> declaration(bool inLoop=false) {
         try {
             if(match(VAR)) return varDeclaration();
-            return statement();
+            return statement(inLoop);
         } catch(ParseError error) {
             synchronize();
             return nullptr;
@@ -895,9 +914,15 @@ public:
     }
 };
 
+class BreakLoop : public std::runtime_error {
+public:
+    BreakLoop() : std::runtime_error("") {}
+    ~BreakLoop() = default;
+};
 
 class Interpreter : public Visitor {
     std::shared_ptr<Environment> environment;
+    bool loopBreak { false };
 
     void checkNumberOperand(Token op, Value& val) const {
         if(std::holds_alternative<float>(val)) return;
@@ -951,13 +976,12 @@ class Interpreter : public Visitor {
     void executeBlock(const std::vector<std::shared_ptr<Stmt>>& statements,
             std::shared_ptr<Environment> env) {
         std::shared_ptr<Environment> prevEnv = std::move(this->environment);
-        try {
-            this->environment = env;
-            for(const auto& stmt: statements) {
-                execute(stmt);
-            }
-        } catch(std::runtime_error e) {
+        this->environment = env;
+
+        for(const auto& stmt: statements) {
+            execute(stmt);
         }
+
         this->environment = prevEnv;
     }
 public:
@@ -1081,12 +1105,17 @@ public:
     }
     virtual Value visitWhileStmt(WhileStmt* stmt) override {
         while(isTruthy(evaluate(&*stmt->condition))) {
-            execute(stmt->body);
+            try {
+                execute(stmt->body);
+            } catch(BreakLoop e) {
+                break;
+            }
         }
         return Nil();
     }
-
-
+    virtual Value visitBreakStmt(BreakStmt* stmt) override {
+        throw BreakLoop();
+    }
 
     Interpreter() : environment { std::make_shared<Environment>() } {}
 
@@ -1201,6 +1230,7 @@ void Scanner::setupKeywords() {
     keywords["true"] = TRUE;
     keywords["var"] = VAR;
     keywords["while"] = WHILE; 
+    keywords["break"] = BREAK;
 }
 
 std::string tokenTypeToString(TokenType type) {
