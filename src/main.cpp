@@ -920,6 +920,20 @@ public:
     ~BreakLoop() = default;
 };
 
+class TemporaryEnv {
+    std::shared_ptr<Environment>& env;
+    std::shared_ptr<Environment> prevEnv;
+public:
+    TemporaryEnv(std::shared_ptr<Environment>& currentEnv,
+                 std::shared_ptr<Environment> newEnv)
+        : env{ currentEnv }, prevEnv{ currentEnv } {
+            env = newEnv;
+        }
+    ~TemporaryEnv() {
+        env = prevEnv;
+    }
+};
+
 class Interpreter : public Visitor {
     std::shared_ptr<Environment> environment;
     bool loopBreak { false };
@@ -975,14 +989,12 @@ class Interpreter : public Visitor {
     }
     void executeBlock(const std::vector<std::shared_ptr<Stmt>>& statements,
             std::shared_ptr<Environment> env) {
-        std::shared_ptr<Environment> prevEnv = std::move(this->environment);
-        this->environment = env;
-
+        // tempenv sets current environment to the new one and in the
+        // destructor restores it to the old one, using RAII
+        TemporaryEnv tempenv = TemporaryEnv(this->environment, env);
         for(const auto& stmt: statements) {
             execute(stmt);
         }
-
-        this->environment = prevEnv;
     }
 public:
     virtual Value visitBinop(Binop* expr) override {
