@@ -23,33 +23,28 @@
 using std::string, std::cout, std::endl, std::cerr;
 
 struct Nil { Nil() {} };
+class Interpreter;
+class Callable;
 
 // Literal --------------------------------------------------------------------
-using Value = std::variant<float, bool, string, Nil>;
-string valueToString(Value value) {
-    if(std::holds_alternative<string>(value)) {
-        return std::get<string>(value);
-    } else if(std::holds_alternative<float>(value)) {
-        float f = std::get<float>(value);
-        int c;
-        if(std::abs(f - int(f)) == 0.0) {
-            int c = f;
-            return std::to_string(c);
-        }
-        return std::to_string(f);
-    } else if(std::holds_alternative<bool>(value)) {
-        return std::get<bool>(value) ? "1" : "0";
-    } else if(std::holds_alternative<Nil>(value)) {
-        return "nil";
-    }
-    return "";
-}
+using Value = std::variant<float, bool, string, Nil, Callable*>;
+string valueToString(Value value); 
+
+class Callable {
+public:
+  int arity();
+  virtual Value call(Interpreter* interpreter, std::vector<Value> args) = 0;
+};
+
+
+
 struct Literal {
     Value value;
     Literal(float v): value {v} {}
     Literal(bool v): value {v} {}
     Literal(const string& v): value {v} {}
     Literal(Nil v): value {v} {}
+    Literal(Callable* cal): value {cal} {}
     template <typename T>
     T get() const {
         return std::get<T>(value);
@@ -294,6 +289,7 @@ class LiteralExpr;
 class VariableExpr;
 class Assign;
 class Logical;
+class Call;
 
 class Stmt;
 class ExprStmt;
@@ -315,6 +311,7 @@ public:
     virtual Value visitAssign(Assign* expr) = 0;
     virtual Value visitVariableExpr(VariableExpr* expr) = 0;
     virtual Value visitLogical(Logical* expr) = 0;
+    virtual Value visitCall(Call* expr) = 0;
 
     virtual Value visitExprStmt(ExprStmt* exprstmt) = 0;
     virtual Value visitPrintStmt(PrintStmt* print) = 0;
@@ -426,6 +423,20 @@ public:
     virtual ~Expr() = default;
 };
 
+class Call : public Expr {
+public:
+  std::shared_ptr<Expr> callee;
+  Token paren;
+  std::vector<std::shared_ptr<Expr>> arguments;
+  Call(std::shared_ptr<Expr> callee, Token paren,
+       const std::vector<std::shared_ptr<Expr>>& arguments)
+    : callee{callee}, paren{paren}, arguments{arguments} {}
+  virtual Value accept(Visitor* visitor) override {
+      if(!visitor) return Nil();
+      return visitor->visitCall(this);
+  }
+};
+
 class Logical : public Expr {
 public:
     std::shared_ptr<Expr> left;
@@ -529,12 +540,12 @@ public:
                     in AstPrinter!!!");
         }
     }
-    static string print_(std::shared_ptr<Expr> expr) {
+    /*static string print_(std::shared_ptr<Expr> expr) {
         auto pp = new AstPrinter();
         Value result = expr->accept(pp);
         std::cout << valueToString(result) << std::endl;
         return valueToString(result);
-    }
+    }*/
     virtual Value visitBinop(Binop* binop) override {
         return parenthesize(binop->op.lexeme, binop->left, binop->right);
     }
@@ -681,7 +692,31 @@ class Parser {
             auto right = unary();
             return std::make_unique<Unop>(op, std::move(right));
         }
-        return primary();
+        return call();
+    }
+
+    std::shared_ptr<Expr> call() {
+      std::shared_ptr<Expr> expr = primary();
+      while(true) {
+        if(match(LEFT_PAREN)) {
+          expr = finishCall(expr);
+        } else break;
+      }
+      return expr;
+    }
+
+    std::shared_ptr<Expr> finishCall(std::shared_ptr<Expr> callee) {
+      std::vector<std::shared_ptr<Expr>> args {};
+      if(!check(RIGHT_PAREN)) {
+        do {
+          if (args.size() >= 255) {
+            error(peek(), "Can't have more than 255 arguments.");
+          }
+          args.push_back(expression());
+        } while(match(COMMA));
+      }
+      Token paren = consume(RIGHT_PAREN, "Expect ')' after arguments.");
+      return std::make_shared<Call>(callee, paren, args);
     }
 
     std::shared_ptr<Expr> primary() {
@@ -921,6 +956,7 @@ public:
 };
 
 // Interpreter ----------------------------------------------------------------
+
 class Environment {
     std::map<string, Value> values;
     std::shared_ptr<Environment> enclosing;
@@ -970,6 +1006,7 @@ public:
         env = prevEnv;
     }
 };
+
 
 class Interpreter : public Visitor {
     std::shared_ptr<Environment> environment;
@@ -1175,6 +1212,23 @@ public:
     virtual Value visitBreakStmt(BreakStmt* stmt) override {
         throw BreakLoop();
     }
+    virtual Value visitCall(Call* expr) override {
+      Value callee = evaluate(&*expr->callee);
+      std::vector<Value> args {};
+      for(const auto& arg: expr->arguments) {
+        args.push_back(evaluate(&*arg));
+      }
+      if(auto func = std::get_if<Callable*>(&callee)) {
+        if(*func) {
+          if((*func)->arity() != args.size()) {
+            throw RuntimeError(expr->paren, "Expected " + (*func)->arity() +
+                " arguments, but got " + args.size() + " instead.");
+          }
+          return (*func)->call(this, args);
+        }
+      }
+      throw RuntimeError(expr->paren, "Can only call functions and classes");
+    }
 
     Interpreter() : environment { std::make_shared<Environment>() } {}
 
@@ -1359,4 +1413,23 @@ float strToFloat(string str) {
         pow = pow << 1;
     }
     return res;
+}
+
+string valueToString(Value value) {
+    if(std::holds_alternative<string>(value)) {
+        return std::get<string>(value);
+    } else if(std::holds_alternative<float>(value)) {
+        float f = std::get<float>(value);
+        int c;
+        if(std::abs(f - int(f)) == 0.0) {
+            int c = f;
+            return std::to_string(c);
+        }
+        return std::to_string(f);
+    } else if(std::holds_alternative<bool>(value)) {
+        return std::get<bool>(value) ? "1" : "0";
+    } else if(std::holds_alternative<Nil>(value)) {
+        return "nil";
+    }
+    return "";
 }
