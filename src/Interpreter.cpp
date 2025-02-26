@@ -225,12 +225,15 @@ Value Interpreter::visitCall(Expr::Call* expr) {
   throw RuntimeError(expr->paren, "Can only call functions and classes");
 }
 
-//Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {}
+// TODO!
+Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
+
+}
 
 Interpreter::Interpreter(std::shared_ptr<Lox> lox) 
   : globals { std::make_shared<Environment>() }, lox { std::move(lox) }
 {
-  globals->define("clock", new Native::Clock());
+  //globals->define("clock", new Native::Clock());
   environment = globals;
 }
 

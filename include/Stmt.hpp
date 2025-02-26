@@ -3,7 +3,6 @@
 #include <vector>
 #include <memory>
 
-#include "Types.hpp"
 #include "Token.hpp"
 #include "Expr.hpp"
 
@@ -32,7 +31,7 @@ public:
 
 class Break : public Stmt {
 public:
-  Break() {}
+  Break();
   virtual Value accept(Visitor* visitor) override; 
 };
 
@@ -63,8 +62,12 @@ public:
   Block();
   Block(const Stmts& otherStatements);
   Block(const Block& other);
-  template <typename... Stmts_>
-    Block(const std::shared_ptr<Stmts_>&... stmts);
+
+  template <typename... Stmts>
+  Block(const std::shared_ptr<Stmts>&... stmts) : Block() {
+    ((statements.push_back(std::move(stmts))), ...);
+  }
+
   virtual Value accept(Visitor* visitor) override; 
 };
 

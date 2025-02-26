@@ -78,7 +78,7 @@ class Grouping : public Expr {
 public:
   ExprPtr expr;
 
-  Grouping(ExprPtr expr) : expr { std::move(expr) } {}
+  Grouping(ExprPtr expr);
   virtual Value accept(Visitor* visitor) override; 
 };
 

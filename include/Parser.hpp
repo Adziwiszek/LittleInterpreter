@@ -4,8 +4,9 @@
 #include <vector>
 #include <iostream>
 
-#include "Visitor.hpp"
 #include "Lox.hpp"
+#include "Stmt.hpp"
+#include "Expr.hpp"
 
 // Forward declarations
 class Value;
@@ -13,17 +14,17 @@ class Token;
 class Environment;
 class Callable;
 
-namespace Stmt {
+/*namespace Stmt {
     class Stmt;
     using StmtPtr = std::shared_ptr<Stmt>;
     using Stmts = std::vector<StmtPtr>;
-}
+}*/
 
-namespace Expr {
+/*namespace Expr {
     class Expr;
     using ExprPtr = std::shared_ptr<Expr>;
     using Exprs = std::vector<ExprPtr>;
-}
+}*/
 
 using Stmt::Stmts, Stmt::StmtPtr, Expr::Exprs, Expr::ExprPtr;
 

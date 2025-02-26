@@ -5,9 +5,18 @@
 #include <string>
 #include <memory>
 
+
 // forward declarations
 class Interpreter;
 class Value;
+class Token;
+using Tokens = std::vector<Token>;
+/*namespace Stmt {
+  class Function{
+  public:
+    Tokens args;
+  };
+};*/
 
 // Used for representing NULL value in my language
 class Nil {public: Nil() {} };

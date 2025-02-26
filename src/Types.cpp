@@ -1,4 +1,5 @@
 #include "../include/Types.hpp"
+#include "../include/Token.hpp"
 
 template <typename T>
 Value::Value(const T& val)
