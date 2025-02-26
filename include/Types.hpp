@@ -30,13 +30,15 @@ public:
     std::shared_ptr<Callable>
   > value;
 
+  template <typename T>
+  Value(const T& val);
+
   Value(const Value& other);
-  Value(float f);
-  Value(bool b);
-  Value(const std::string& s);
-  Value(Nil v);
-  Value(std::shared_ptr<Callable> cal);
-  std::string toString(); 
+  Value();
+
+  template <typename T>
+  T get() const;
+  std::string toString() const; 
 };
 
 struct Literal {
@@ -53,4 +55,3 @@ struct Literal {
 };
 using LiteralPtr = std::shared_ptr<Literal>;
 
-// Helper types

@@ -7,17 +7,27 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 set(SOURCES
   src/main.cpp
   src/Token.cpp
+  src/Types.cpp
+  src/Parser.cpp
+  src/Scanner.cpp
+  src/Interpreter.cpp
+  src/Environment.cpp
+  src/NativeFunctions.cpp
+  src/Lox.cpp
 )
 
 set(HEADERS
   include/Expr.hpp
+  include/Lox.hpp
   include/Interpreter.hpp
+  include/Environment.hpp
   include/Scanner.hpp
   include/Stmt.hpp
   include/Token.hpp
   include/Types.hpp
   include/Visitor.hpp
   include/Parser.hpp
+  include/NativeFunctions.hpp
 )
 
 add_executable(main ${SOURCES} ${HEADERS})

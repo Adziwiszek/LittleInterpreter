@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "Visitor.hpp"
+#include "Lox.hpp"
 
 // Forward declarations
 class Value;
@@ -33,6 +34,7 @@ public:
 };
 
 class Parser {
+  std::shared_ptr<Lox> lox;
   Tokens tokens;
   int current;
 
@@ -73,7 +75,7 @@ class Parser {
   std::shared_ptr<Stmt::Function> function(std::string kind); 
   StmtPtr varDeclaration(); 
 public:
-  Parser(std::vector<Token> tokens);
+  Parser(std::vector<Token> tokens, std::shared_ptr<Lox> lox);
   Stmts parse(); 
 };
 

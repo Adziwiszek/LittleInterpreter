@@ -2,8 +2,13 @@
 
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "Visitor.hpp"
+#include "Lox.hpp"
+#include "Types.hpp"
+#include "Environment.hpp"
+#include "NativeFunctions.hpp"
 
 // Forward declarations -------------------------------------------------------
 class Value;
@@ -25,8 +30,15 @@ namespace Expr {
 using Stmt::Stmts, Stmt::StmtPtr, Expr::Exprs, Expr::ExprPtr;
 // ----------------------------------------------------------------------------
 
+class BreakLoop : public std::runtime_error {
+  public:
+    BreakLoop() : std::runtime_error("") {}
+    ~BreakLoop() = default;
+};
+
 class Interpreter : public Visitor {
   std::shared_ptr<Environment> environment;
+  std::shared_ptr<Lox> lox;
 
   void checkNumberOperand(Token op, Value& val) const; 
   void checkNumberOperands(Token op, Value& left, Value& right) const; 
@@ -52,9 +64,11 @@ public:
   virtual Value visitLogical(Expr::Logical* expr) override; 
   virtual Value visitWhileStmt(Stmt::While* stmt) override; 
   virtual Value visitBreakStmt(Stmt::Break* stmt) override; 
-  virtual Value visitCall(Expr::Call* expr) override; 
 
-  Interpreter();
+  virtual Value visitCall(Expr::Call* expr) override; 
+  virtual Value visitFunctionStmt(Stmt::Function* stmt) override;
+
+  Interpreter(std::shared_ptr<Lox> lox);
 
   void execute(const StmtPtr& stmt); 
   void executeBlock(const Stmts& statements,

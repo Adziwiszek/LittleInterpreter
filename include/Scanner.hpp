@@ -4,8 +4,11 @@
 #include <map>
 
 #include "Token.hpp"
+#include "Lox.hpp"
 
 class Scanner {
+  std::shared_ptr<Lox> lox;
+
   int start { 0 };
   int current { 0 };
   int line { 1 };
@@ -14,7 +17,7 @@ public:
   Tokens tokens;
   std::map<std::string, TokenType> keywords;
 
-  Scanner(std::string source_);
+  Scanner(std::string source, std::shared_ptr<Lox> lox);
   Tokens scanTokens(); 
   void scanToken(); 
 

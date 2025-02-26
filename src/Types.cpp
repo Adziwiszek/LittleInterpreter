@@ -1,20 +1,22 @@
 #include "../include/Types.hpp"
 
+template <typename T>
+Value::Value(const T& val)
+  : value{val} {}
 
 Value::Value(const Value& other)
   : value{other.value} {}
-Value::Value(float f)
-  : value{f} {}
-Value::Value(bool b)
-  : value{b} {}
-Value::Value(const std::string& s)
-  : value{s} {}
-Value::Value(Nil v)
-  : value{v} {}
-Value::Value(std::shared_ptr<Callable> cal)
-  : value{cal} {}
 
-std::string Value::toString() {
+Value::Value()
+  : value{42.0f} {}
+
+
+template <typename T>
+T Value::get() const {
+  return std::get<T>(value);
+}
+
+std::string Value::toString() const {
   if(std::holds_alternative<std::string>(value)) {
     return std::get<std::string>(value);
   } else if(std::holds_alternative<float>(value)) {
@@ -42,18 +44,9 @@ Literal::Literal(std::shared_ptr<Callable> cal): value {cal} {}
 
 template <typename T>
 T Literal::get() const {
-  return std::get<T>(value);
+  return value.get<T>();
 }
 
 std::string Literal::toString() const {
-  if(std::holds_alternative<std::string>(value)) {
-    return get<std::string>();
-  } else if(std::holds_alternative<float>(value)) {
-    return std::to_string(get<float>());
-  } else if(std::holds_alternative<bool>(value)) {
-    return get<bool>() ? "1" : "0";
-  } else if(std::holds_alternative<Nil>(value)) {
-    return "nil";
-  }
-  return "";
+  return value.toString();
 }
