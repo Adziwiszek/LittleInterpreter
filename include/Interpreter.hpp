@@ -8,7 +8,6 @@
 #include "Lox.hpp"
 #include "Types.hpp"
 #include "Environment.hpp"
-#include "NativeFunctions.hpp"
 
 // Forward declarations -------------------------------------------------------
 class Value;

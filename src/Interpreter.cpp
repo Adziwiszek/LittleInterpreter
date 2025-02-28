@@ -1,4 +1,7 @@
 #include "../include/Interpreter.hpp"
+#include "../include/NativeFunctions.hpp"
+#include "../include/LoxFunction.hpp"
+
 
 
 void Interpreter::checkNumberOperand(Token op, Value& val) const {
@@ -227,13 +230,24 @@ Value Interpreter::visitCall(Expr::Call* expr) {
 
 // TODO!
 Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
-
+  // converting normal pointer to shared_ptr
+  std::shared_ptr<Stmt::Function> fstmt =
+    std::make_shared<Stmt::Function>(*stmt);
+  // making callable lox function
+  std::shared_ptr<Callable> calfun =
+    std::make_shared<LoxFunction>(fstmt);
+  // creating value that holds that lox function
+  Value valfun = Value(calfun);
+  // defining function in environment
+  environment->define(stmt->name.lexeme, valfun);
+  return Nil();
 }
 
 Interpreter::Interpreter(std::shared_ptr<Lox> lox) 
   : globals { std::make_shared<Environment>() }, lox { std::move(lox) }
 {
-  //globals->define("clock", new Native::Clock());
+  std::shared_ptr<Native::Clock> clock = std::make_shared<Native::Clock>();
+  globals->define("clock", clock);
   environment = globals;
 }
 

@@ -1,5 +1,8 @@
 #include "../include/NativeFunctions.hpp"
 
+Native::Clock::Clock(const std::shared_ptr<Clock>& other) {}
+
+Native::Clock::Clock() { }
 
 int Native::Clock::arity() { return 0; }
 

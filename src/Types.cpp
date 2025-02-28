@@ -1,10 +1,6 @@
 #include "../include/Types.hpp"
 #include "../include/Token.hpp"
 
-template <typename T>
-Value::Value(const T& val)
-  : value{val} {}
-
 Value::Value(const Value& other)
   : value{other.value} {}
 

@@ -5,8 +5,11 @@
 #include <chrono>
 
 namespace Native {
-  class Clock : public Callable {
-    virtual int arity() override;
-    virtual Value call(Interpreter* interpreter, std::vector<Value> args) override;
-  };
+class Clock : public Callable {
+public:
+  Clock();
+  Clock(const std::shared_ptr<Clock>& other);
+  virtual int arity() override;
+  virtual Value call(Interpreter* interpreter, std::vector<Value> args) override;
+};
 }

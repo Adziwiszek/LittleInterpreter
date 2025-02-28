@@ -1,6 +1,5 @@
-var b = 2 + 2;
-for(var a = 0; a < 10; a = a + 1) {
-    var b = a * 2;
-    print b;
+fun heloWorld(name) {
+  print "Hello " + name;
 }
-print b;
+
+heloWorld("adam");

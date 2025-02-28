@@ -26,6 +26,7 @@ public:
   Stmts body;
 
   Function(Token name, const Tokens& args, const Stmts& body);
+  Function(const Function& other);
   virtual Value accept(Visitor* visitor) override; 
 };
 

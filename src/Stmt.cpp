@@ -13,6 +13,11 @@ Function::Function(Token name, const std::vector<Token>& args,
     const std::vector<StmtPtr>& body)
   : name{name}, body{body}, args{args}
 {}
+
+Function::Function(const Function& other) 
+  : name {other.name}, body {other.body}, args{other.args}
+{}
+
 Value Function::accept(Visitor* visitor) {
   if(!visitor) return Nil();
   return visitor->visitFunctionStmt(this);
