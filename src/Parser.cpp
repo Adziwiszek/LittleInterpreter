@@ -346,6 +346,7 @@ std::shared_ptr<Stmt::Function> Parser::function(std::string kind) {
     } while(match(COMMA));
   }
   consume(RIGHT_PAREN, "Expect ')' after parameters");
+  consume(LEFT_BRACE, "Expect '{' after function parameters");
   std::vector<StmtPtr> body = block(false);
   return std::make_shared<Stmt::Function>(name, args, body);
 }

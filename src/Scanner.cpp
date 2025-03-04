@@ -171,4 +171,5 @@ void Scanner::Scanner::setupKeywords() {
   keywords["var"] = VAR;
   keywords["while"] = WHILE; 
   keywords["break"] = BREAK;
+  keywords["fun"] = FUN;
 }

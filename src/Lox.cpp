@@ -34,6 +34,9 @@ void Lox::run(std::string source) {
   if(hadError) return;
   Scanner scanner(source, std::make_shared<Lox>(this));
   auto tokens = scanner.scanTokens();
+  /*for(const auto& token: tokens) {
+    std::cout << token.toString() << "\n";
+  }*/
 
   Parser parser(tokens, std::make_shared<Lox>(this));
   std::vector<StmtPtr> program = parser.parse();
@@ -46,7 +49,7 @@ void Lox::run(std::string source) {
 
 void Lox::error(Token token, std::string message) {
   if (token.type == EOF_) {
-    report(token.line, " at end", message);
+    report(token.line, "at the end of file", message);
   } else {
     report(token.line, " at '" + token.lexeme + "'", message);
   }
