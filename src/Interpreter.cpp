@@ -228,19 +228,24 @@ Value Interpreter::visitCall(Expr::Call* expr) {
   throw RuntimeError(expr->paren, "Can only call functions and classes");
 }
 
-// TODO!
 Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
   // converting normal pointer to shared_ptr
   std::shared_ptr<Stmt::Function> fstmt =
     std::make_shared<Stmt::Function>(*stmt);
   // making callable lox function
   std::shared_ptr<Callable> calfun =
-    std::make_shared<LoxFunction>(fstmt);
+    std::make_shared<LoxFunction>(fstmt, environment);
   // creating value that holds that lox function
   Value valfun = Value(calfun);
   // defining function in environment
   environment->define(stmt->name.lexeme, valfun);
   return Nil();
+}
+
+Value Interpreter::visitReturnStmt(Stmt::Return* stmt) {
+  Value value = Nil();
+  if(stmt->value) value = evaluate(&*stmt->value); 
+  throw Return(value);
 }
 
 Interpreter::Interpreter(std::shared_ptr<Lox> lox) 

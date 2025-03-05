@@ -24,6 +24,7 @@ public:
   virtual Value visitVarStmt(Stmt::Var* stmt) = 0; 
 
   virtual Value visitFunctionStmt(Stmt::Function* stmt) = 0;
+  virtual Value visitReturnStmt(Stmt::Return* stmt) = 0;
   virtual Value visitCall(Expr::Call* expr) = 0; 
 };
 

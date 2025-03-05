@@ -280,10 +280,21 @@ StmtPtr Parser::forStatement() {
   return body;
 }
 
+StmtPtr Parser::returnStatement() {
+  Token keyword = previous();
+  ExprPtr value = nullptr;
+  if(!check(SEMICOLON)) {
+    value = expression();
+  }
+  consume(SEMICOLON, "Expect ';' after return value");
+  return std::make_shared<Stmt::Return>(keyword, std::move(value));
+}
+
 StmtPtr Parser::statement(bool inLoop) {
   if(match(FOR)) return forStatement();
   if(match(IF)) return ifStatement(inLoop);
   if(match(PRINT)) return printStatement();
+  if(match(RETURN)) return returnStatement();
   if(match(WHILE)) return whileStatement();
   if(match(LEFT_BRACE)) return std::make_shared<Stmt::Block>(block(inLoop));
   if(match(BREAK)) return breakStatement(inLoop);

@@ -64,6 +64,7 @@ class Parser {
 
   ParseError parserError(Token token, std::string message); 
 
+  StmtPtr returnStatement();
   StmtPtr printStatement(); 
   StmtPtr expressionStatement(); 
   StmtPtr whileStatement(); 

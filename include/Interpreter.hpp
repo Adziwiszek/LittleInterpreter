@@ -30,9 +30,17 @@ using Stmt::Stmts, Stmt::StmtPtr, Expr::Exprs, Expr::ExprPtr;
 // ----------------------------------------------------------------------------
 
 class BreakLoop : public std::runtime_error {
-  public:
-    BreakLoop() : std::runtime_error("") {}
-    ~BreakLoop() = default;
+public:
+  BreakLoop() : std::runtime_error("") {}
+  ~BreakLoop() = default;
+};
+
+class Return : public std::runtime_error {
+public:
+  Value value;
+
+  Return(const Value& value) : std::runtime_error(""), value { value } {}
+  ~Return() = default;
 };
 
 class Interpreter : public Visitor {
@@ -66,6 +74,7 @@ public:
 
   virtual Value visitCall(Expr::Call* expr) override; 
   virtual Value visitFunctionStmt(Stmt::Function* stmt) override;
+  virtual Value visitReturnStmt(Stmt::Return* stmt) override;
 
   Interpreter(std::shared_ptr<Lox> lox);
 

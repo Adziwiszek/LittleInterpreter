@@ -43,11 +43,16 @@ public:
   Value(const Value& other);
 
   template <typename T>
+  Value& operator=(const T& val) {
+    value = val;
+    return *this;
+  }
+
+  template <typename T>
   Value(const T& val)
   {
     value = val;
   }
-
 
   template <typename T>
   T get() const;

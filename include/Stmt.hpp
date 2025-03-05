@@ -19,6 +19,15 @@ class Stmt {
 using StmtPtr = std::shared_ptr<Stmt>;
 using Stmts   = std::vector<StmtPtr>;
 
+class Return : public Stmt {
+public:
+  Token keyword;
+  ExprPtr value;
+
+  Return(const Token& keyword, const ExprPtr& value);
+  virtual Value accept(Visitor* visitor) override; 
+};
+
 class Function : public Stmt {
 public:
   Token name;
