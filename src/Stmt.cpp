@@ -39,10 +39,10 @@ Value Break::accept(Visitor* visitor) {
 
 While::While(ExprPtr condition, StmtPtr body)
   : condition{ std::move(condition) }, body{ std::move(body) } {}
-  Value While::accept(Visitor* visitor) {
-    if(!visitor) return Nil();
-    return visitor->visitWhileStmt(this);
-  }
+Value While::accept(Visitor* visitor) {
+  if(!visitor) return Nil();
+  return visitor->visitWhileStmt(this);
+}
 
 If::If(ExprPtr& condition, 
     StmtPtr& thenBranch,

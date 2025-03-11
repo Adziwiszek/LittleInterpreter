@@ -43,12 +43,17 @@ Value Logical::accept(Visitor* visitor) {
 
 Assign::Assign(Token name, std::shared_ptr<Expr> expr)
   : name { name }, value { std::move(expr) } { }
+
+Assign::Assign(const Assign& other)
+  : name { other.name }, value { std::move(other.value) } {}
+
 Value Assign::accept(Visitor* visitor) {
   if(!visitor) return Nil();
   return visitor->visitAssign(this);
 }
 
 Variable::Variable(Token name) : name { name } {}
+Variable::Variable(const Variable& other) : name { other.name } {}
 Value Variable::accept(Visitor* visitor) {
   if(!visitor) return Nil();
   return visitor->visitVariableExpr(this);

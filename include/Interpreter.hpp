@@ -2,7 +2,8 @@
 
 #include <memory>
 #include <vector>
-#include <iostream>
+#include <stdexcept>
+#include <map>
 
 #include "Visitor.hpp"
 #include "Lox.hpp"
@@ -46,12 +47,15 @@ public:
 class Interpreter : public Visitor {
   std::shared_ptr<Environment> environment;
   std::shared_ptr<Lox> lox;
+  std::map<Expr::Expr*, int> locals {};
 
   void checkNumberOperand(Token op, Value& val) const; 
   void checkNumberOperands(Token op, Value& left, Value& right) const; 
   void reportDifferentTypesOperands() const; 
   bool isTruthy(Value val) const; 
   bool isEqual(Value left, Value right) const; 
+  
+  Value lookUpVariable(Token name, Expr::Expr* expr);
 public:
   std::shared_ptr<Environment> globals;
 
@@ -79,9 +83,10 @@ public:
   Interpreter(std::shared_ptr<Lox> lox);
 
   void execute(const StmtPtr& stmt); 
+  Value evaluate(const ExprPtr& expr); 
   void executeBlock(const Stmts& statements,
       std::shared_ptr<Environment> env); 
-  Value evaluate(Expr::Expr* expr); 
+  void resolve(ExprPtr expr, int depth);
 
   void interpret(const Stmts& program); 
 };

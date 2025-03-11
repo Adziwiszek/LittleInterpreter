@@ -16,7 +16,10 @@ public:
 
   void define(std::string name, Value value);
   Value get(const Token& name) const;
+  Value getAt(int distance, const std::string& name);
+  Environment* ancestor(int distance);
   void assign(Token name, Value value);
+  void assignAt(int distance, Token name, Value value);
 };
 
 class TemporaryEnv {

@@ -2,7 +2,7 @@
 #include "../include/NativeFunctions.hpp"
 #include "../include/LoxFunction.hpp"
 
-
+#include <iostream>
 
 void Interpreter::checkNumberOperand(Token op, Value& val) const {
   if(std::holds_alternative<float>(val.value)) return;
@@ -67,8 +67,8 @@ void Interpreter::executeBlock(const Stmts& statements,
 }
 
 Value Interpreter::visitBinop(Expr::Binop* expr) {
-  Value left = evaluate(&*expr->left);
-  Value right = evaluate(&*expr->right);
+  Value left = evaluate(expr->left);
+  Value right = evaluate(expr->right);
 
   auto executeBinop = 
     [&left, &right]<typename T, typename F>(F fn) -> T { 
@@ -120,7 +120,7 @@ Value Interpreter::visitBinop(Expr::Binop* expr) {
   return Nil();
 }
 Value Interpreter::visitUnop(Expr::Unop* expr) {
-  Value right = evaluate(&*expr->expr);
+  Value right = evaluate(expr->expr);
   switch(expr->op.type) {
     case BANG: {
                  return !isTruthy(right);
@@ -145,34 +145,41 @@ Value Interpreter::visitUnop(Expr::Unop* expr) {
   return Nil();
 }
 Value Interpreter::visitGrouping(Expr::Grouping* expr) {
-  return evaluate(&*expr->expr);
+  return evaluate(expr->expr);
 }
 Value Interpreter::visitLiteralExpr(Expr::Literal* expr) {
   return expr->value->value;
 }
 Value Interpreter::visitExprStmt(Stmt::Expr* exprstmt) {
-  evaluate(&*exprstmt->expr);
+  evaluate(exprstmt->expr);
   return Nil();
 }
 Value Interpreter::visitPrintStmt(Stmt::Print* varstmt) {
-  Value res = evaluate(&*varstmt->expr);
+  Value res = evaluate(varstmt->expr);
   std::cout << res.toString() << std::endl;
   return Nil();
 }
 Value Interpreter::visitVarStmt(Stmt::Var* stmt) {
   Value val = Nil();
   if(stmt->initializer) {
-    val = evaluate(&*stmt->initializer);
+    val = evaluate(stmt->initializer);
   }
   environment->define(stmt->name.lexeme, val);
   return val;
 }
-Value Interpreter::visitVariableExpr(Expr::Variable* var) {
-  return environment->get(var->name);
+Value Interpreter::visitVariableExpr(Expr::Variable* expr) {
+  return lookUpVariable(expr->name, expr);
 }
 Value Interpreter::visitAssign(Expr::Assign* expr) {
-  Value value = evaluate(&*expr->value);
-  environment->assign(expr->name, value);
+  Value value = evaluate(expr->value);
+
+  if(locals.contains(expr)) {
+    int distance = locals[expr];
+    environment->assignAt(distance, expr->name, value);
+  } else {
+    globals->assign(expr->name, value);
+  }
+
   return value;
 }
 Value Interpreter::visitBlockStmt(Stmt::Block* stmt) {
@@ -180,7 +187,7 @@ Value Interpreter::visitBlockStmt(Stmt::Block* stmt) {
   return Nil();
 }
 Value Interpreter::visitIfStmt(Stmt::If* stmt) {
-  if(isTruthy(evaluate(&*stmt->condition))) {
+  if(isTruthy(evaluate(stmt->condition))) {
     execute(stmt->thenBranch);
   } else if(stmt->elseBranch) {
     execute(stmt->elseBranch);
@@ -188,16 +195,16 @@ Value Interpreter::visitIfStmt(Stmt::If* stmt) {
   return Nil();
 }
 Value Interpreter::visitLogical(Expr::Logical* expr) {
-  Value left = evaluate(&*expr->left);
+  Value left = evaluate(expr->left);
   if(expr->op.type == OR) {
     if(isTruthy(left)) return left;
   } else if(expr->op.type == AND) {
     if(!isTruthy(left)) return left;
   }
-  return evaluate(&*expr->right);
+  return evaluate(expr->right);
 }
 Value Interpreter::visitWhileStmt(Stmt::While* stmt) {
-  while(isTruthy(evaluate(&*stmt->condition))) {
+  while(isTruthy(evaluate(stmt->condition))) {
     try {
       execute(stmt->body);
     } catch(BreakLoop e) {
@@ -210,10 +217,10 @@ Value Interpreter::visitBreakStmt(Stmt::Break* stmt) {
   throw BreakLoop();
 }
 Value Interpreter::visitCall(Expr::Call* expr) {
-  Value callee = evaluate(&*expr->callee);
+  Value callee = evaluate(expr->callee);
   std::vector<Value> args {};
   for(const auto& arg: expr->arguments) {
-    args.push_back(evaluate(&*arg));
+    args.push_back(evaluate(arg));
   }
   if(auto func = std::get_if<std::shared_ptr<Callable>>(&callee.value)) {
     if(*func) {
@@ -244,7 +251,7 @@ Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
 
 Value Interpreter::visitReturnStmt(Stmt::Return* stmt) {
   Value value = Nil();
-  if(stmt->value) value = evaluate(&*stmt->value); 
+  if(stmt->value) value = evaluate(stmt->value); 
   throw Return(value);
 }
 
@@ -256,12 +263,26 @@ Interpreter::Interpreter(std::shared_ptr<Lox> lox)
   environment = globals;
 }
 
-Value Interpreter::evaluate(Expr::Expr* expr) {
+Value Interpreter::lookUpVariable(Token name, Expr::Expr* expr) {
+  if(locals.contains(expr)) {
+    return environment->getAt(locals[expr], name.lexeme);
+  } else {
+    return globals->get(name);
+  }
+}
+
+Value Interpreter::evaluate(const ExprPtr& expr) {
   return expr->accept(this);
 }
+
 void Interpreter::execute(const StmtPtr& stmt) {
   stmt->accept(this);
 }
+
+void Interpreter::resolve(ExprPtr expr, int depth) {
+  locals.insert({&*expr, depth});
+}
+void resolve(Expr::Expr* expr, int depth);
 
 void Interpreter::interpret(const Stmts& program) {
   try {

@@ -11,6 +11,7 @@ set(SOURCES
   src/Scanner.cpp
   src/Parser.cpp
   src/Interpreter.cpp
+  src/Resolver.cpp
 
   src/Environment.cpp
   src/NativeFunctions.cpp
@@ -27,6 +28,7 @@ set(HEADERS
   include/Scanner.hpp
   include/Parser.hpp
   include/Interpreter.hpp
+  include/Resolver.hpp
 
   include/Environment.hpp
   include/Visitor.hpp

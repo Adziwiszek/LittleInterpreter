@@ -45,6 +45,7 @@ public:
   ExprPtr value;
 
   Assign(Token name, ExprPtr expr);
+  Assign(const Assign& other);
   virtual Value accept(Visitor* visitor) override; 
 };
 
@@ -52,6 +53,7 @@ class Variable : public Expr {
 public:
   Token name;
   Variable(Token name);
+  Variable(const Variable& other);
   virtual Value accept(Visitor* visitor) override; 
 };
 

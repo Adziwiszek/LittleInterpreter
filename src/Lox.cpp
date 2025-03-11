@@ -2,6 +2,7 @@
 #include "../include/Parser.hpp"
 #include "../include/Scanner.hpp"
 #include "../include/Interpreter.hpp"
+#include "../include/Resolver.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -34,16 +35,18 @@ void Lox::run(std::string source) {
   if(hadError) return;
   Scanner scanner(source, std::make_shared<Lox>(this));
   auto tokens = scanner.scanTokens();
-  /*for(const auto& token: tokens) {
-    std::cout << token.toString() << "\n";
-  }*/
+
 
   Parser parser(tokens, std::make_shared<Lox>(this));
+  Interpreter interpreter(std::make_shared<Lox>(this)); 
+
   std::vector<StmtPtr> program = parser.parse();
   // Stop if there was a syntax error 
   if(hadError) return;
 
-  Interpreter interpreter(std::make_shared<Lox>(this)); 
+  Resolver resolver(interpreter, this);
+  resolver.resolve(program);
+
   interpreter.interpret(program);
 }
 

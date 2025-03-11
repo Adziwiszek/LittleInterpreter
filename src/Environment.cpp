@@ -18,6 +18,20 @@ Value Environment::get(const Token& name) const {
   throw RuntimeError(name, "Undefined variable '" + name.lexeme + "'."); 
 }
 
+Value Environment::getAt(int distance, const std::string& name) {
+  return ancestor(distance)->values.at(name);
+}
+
+Environment* Environment::ancestor(int distance) {
+  Environment* env = this;
+
+  for(int i = 0; i < distance; i++) {
+    env = &*env->enclosing;
+  }
+
+  return env;
+}
+
 void Environment::assign(Token name, Value value) {
   if(values.contains(name.lexeme)) {
     values[name.lexeme] = value;
@@ -28,6 +42,10 @@ void Environment::assign(Token name, Value value) {
     return;
   }
   throw RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+}
+
+void Environment::assignAt(int distance, Token name, Value value) {
+  ancestor(distance)->values[name.lexeme] = value;
 }
 
 TemporaryEnv::TemporaryEnv(std::shared_ptr<Environment>& currentEnv,
