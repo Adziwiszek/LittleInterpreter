@@ -14,7 +14,7 @@ class Resolver : public Visitor {
   Lox* lox;
   std::vector<Scope> scopes;
 
-  void resolveLocal(Expr::ExprPtr expr, Token name);
+  void resolveLocal(Expr::Expr* expr, Token name);
   void resolveFunction(Stmt::Function* function);
 
   void beginScope();

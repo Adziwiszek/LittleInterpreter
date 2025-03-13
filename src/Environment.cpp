@@ -1,13 +1,24 @@
 #include "../include/Environment.hpp"
 #include "../include/Lox.hpp"
 
+#include <iostream>
+
+#define DEBUG
+
+#ifdef DEBUG
+  #define DEBPRINT(x) std::cout << x << "\n";
+#else
+  #define DEBPRINT(x)
+#endif
+
 Environment::Environment(std::shared_ptr<Environment> enclosing) 
   : values {}, enclosing(std::move(enclosing)) {}
 
 Environment::Environment() : enclosing(nullptr) { }
 
 void Environment::define(std::string name, Value value) {
-  values[name] = value;
+  //values[name] = value;
+  values.insert({name, value});
 }
 
 Value Environment::get(const Token& name) const {

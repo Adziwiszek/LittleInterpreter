@@ -218,10 +218,12 @@ Value Interpreter::visitBreakStmt(Stmt::Break* stmt) {
 }
 Value Interpreter::visitCall(Expr::Call* expr) {
   Value callee = evaluate(expr->callee);
+
   std::vector<Value> args {};
   for(const auto& arg: expr->arguments) {
     args.push_back(evaluate(arg));
   }
+
   if(auto func = std::get_if<std::shared_ptr<Callable>>(&callee.value)) {
     if(*func) {
       if((*func)->arity() != args.size()) {
@@ -279,8 +281,8 @@ void Interpreter::execute(const StmtPtr& stmt) {
   stmt->accept(this);
 }
 
-void Interpreter::resolve(ExprPtr expr, int depth) {
-  locals.insert({&*expr, depth});
+void Interpreter::resolve(Expr::Expr* expr, int depth) {
+  locals.insert({expr, depth});
 }
 void resolve(Expr::Expr* expr, int depth);
 

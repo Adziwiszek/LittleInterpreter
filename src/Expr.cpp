@@ -1,6 +1,8 @@
 #include "../include/Expr.hpp"
 #include "../include/Visitor.hpp"
 
+#include <iostream>
+
 // this is Literal from types, used for representing literals in language
 // Expr::Literal is an expression for a literal
 using LiteralType = Literal;

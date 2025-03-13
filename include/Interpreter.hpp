@@ -86,7 +86,7 @@ public:
   Value evaluate(const ExprPtr& expr); 
   void executeBlock(const Stmts& statements,
       std::shared_ptr<Environment> env); 
-  void resolve(ExprPtr expr, int depth);
+  void resolve(Expr::Expr* expr, int depth);
 
   void interpret(const Stmts& program); 
 };

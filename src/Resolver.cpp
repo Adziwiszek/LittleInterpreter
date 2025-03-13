@@ -1,5 +1,14 @@
 #include "../include/Resolver.hpp"
 
+#include <iostream>
+
+//#define DEBUG
+
+#ifdef DEBUG
+  #define DEBPRINT(x) std::cout << x << "\n";
+#else
+  #define DEBPRINT(x)
+#endif
 
 void Resolver::resolve(Expr::ExprPtr expr) {
   expr->accept(this);
@@ -15,7 +24,7 @@ void Resolver::resolve(Stmt::Stmts statements) {
   }
 }
 
-void Resolver::resolveLocal(Expr::ExprPtr expr, Token name) {
+void Resolver::resolveLocal(Expr::Expr* expr, Token name) {
   for(int i = scopes.size() - 1; i >= 0; i--) {
     if(scopes.at(i).contains(name.lexeme)) {
       interpreter.resolve(expr, scopes.size() - 1 - i);
@@ -35,21 +44,25 @@ void Resolver::resolveFunction(Stmt::Function* function) {
 }
 
 void Resolver::beginScope() {
+  DEBPRINT("creating new scope!");
   scopes.push_back(Scope());
 }
 
 void Resolver::endScope() {
+  DEBPRINT("closing scope!");
   scopes.pop_back();
 }
 
 void Resolver::declare(Token name) {
   if(scopes.empty()) return;
-  scopes.end()->insert({name.lexeme, false});
+  DEBPRINT("Declaring: " + name.lexeme);
+  scopes.back()[name.lexeme] = false;
 }
 
 void Resolver::define(Token name) {
   if(scopes.empty()) return;
-  scopes.end()->insert({name.lexeme, true});
+  DEBPRINT("Defining: " + name.lexeme);
+  scopes.back()[name.lexeme] = true;
 }
 
 Resolver::Resolver(Interpreter& interpreter, Lox* lox)
@@ -96,16 +109,18 @@ Value Resolver::visitVarStmt(Stmt::Var* stmt) {
 }
 
 Value Resolver::visitVariableExpr(Expr::Variable* var) {
-  if(!scopes.empty() && !scopes.end()->at(var->name.lexeme)) {
+  if(!scopes.empty() && scopes.back().contains(var->name.lexeme) 
+     && !scopes.back()[var->name.lexeme]) {
     lox->error(var->name, "Can't read local variable in its own initializer."); 
+  } else {
+    resolveLocal(var, var->name);
   }
-  resolveLocal(std::make_shared<Expr::Variable>(*var), var->name);
   return Nil();
 }
 
 Value Resolver::visitAssign(Expr::Assign* expr) {
   resolve(expr->value);
-  resolveLocal(std::make_shared<Expr::Assign>(*expr), expr->name);
+  resolveLocal(expr, expr->name);
   return Nil();
 }
 
