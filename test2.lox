@@ -1,7 +1,4 @@
-var a;
+var a = "as";
+a = 42;
 
-break;
-
-{
-  var a = a;
-}
+print a;

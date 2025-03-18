@@ -9,7 +9,6 @@
 
 using Scope = std::map<std::string, bool>;
 
-
 class Resolver : public Visitor {
   enum FunctionType {
     NONE,

@@ -284,7 +284,6 @@ void Interpreter::execute(const StmtPtr& stmt) {
 void Interpreter::resolve(Expr::Expr* expr, int depth) {
   locals.insert({expr, depth});
 }
-void resolve(Expr::Expr* expr, int depth);
 
 void Interpreter::interpret(const Stmts& program) {
   try {
