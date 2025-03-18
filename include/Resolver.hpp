@@ -19,7 +19,9 @@ class Resolver : public Visitor {
   Interpreter& interpreter;
   Lox* lox;
   std::vector<Scope> scopes;
+
   FunctionType currentFunction;
+  bool inLoop;
 
   void resolveLocal(Expr::Expr* expr, Token name);
   void resolveFunction(Stmt::Function* function,

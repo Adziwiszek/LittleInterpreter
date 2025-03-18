@@ -78,7 +78,7 @@ void Resolver::define(Token name) {
 
 Resolver::Resolver(Interpreter& interpreter, Lox* lox)
   : interpreter { interpreter }, scopes {}, lox {lox},
-  currentFunction { NONE } {}
+  currentFunction { NONE }, inLoop {false} {}
 
 
 Value Resolver::visitBinop(Expr::Binop* expr) {
@@ -157,12 +157,20 @@ Value Resolver::visitLogical(Expr::Logical* expr) {
 }
 
 Value Resolver::visitWhileStmt(Stmt::While* stmt) {
+  bool enclosingLoopState = inLoop;
+  inLoop = true;
+
   resolve(stmt->condition);
   resolve(stmt->body);
+
+  inLoop = enclosingLoopState;
   return Nil();
 }
 
 Value Resolver::visitBreakStmt(Stmt::Break* stmt) {
+  if(!inLoop) {
+    lox->error(stmt->keyword, "'break' statement outside of a loop.");
+  }
   return Nil();
 }
 

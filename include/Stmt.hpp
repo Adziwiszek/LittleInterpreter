@@ -41,7 +41,8 @@ public:
 
 class Break : public Stmt {
 public:
-  Break();
+  Token keyword;
+  Break(Token keyword);
   virtual Value accept(Visitor* visitor) override; 
 };
 

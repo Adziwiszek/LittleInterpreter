@@ -31,7 +31,7 @@ Value Function::accept(Visitor* visitor) {
   return visitor->visitFunctionStmt(this);
 }
 
-Break::Break() {}
+Break::Break(Token keyword) : keyword{keyword} {}
 Value Break::accept(Visitor* visitor) {
   if(!visitor) return Nil();
   return visitor->visitBreakStmt(this);

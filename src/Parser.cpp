@@ -231,7 +231,7 @@ StmtPtr Parser::whileStatement() {
   consume(LEFT_PAREN, "Expect '(' after 'while'.");
   ExprPtr cond = expression();
   consume(RIGHT_PAREN, "Expect ')' after while condition.");
-  StmtPtr body = statement(true);
+  StmtPtr body = statement();
   return std::make_shared<Stmt::While>(std::move(cond), std::move(body));
 }
 
@@ -258,7 +258,7 @@ StmtPtr Parser::forStatement() {
   }
   consume(RIGHT_PAREN, "Expect ';' after for clauses");
 
-  StmtPtr body = statement(true);
+  StmtPtr body = statement();
 
   if(increment) {
     body = std::make_shared<Stmt::Block>(
@@ -290,52 +290,52 @@ StmtPtr Parser::returnStatement() {
   return std::make_shared<Stmt::Return>(keyword, std::move(value));
 }
 
-StmtPtr Parser::statement(bool inLoop) {
+StmtPtr Parser::statement() {
   if(match(FOR)) return forStatement();
-  if(match(IF)) return ifStatement(inLoop);
+  if(match(IF)) return ifStatement();
   if(match(PRINT)) return printStatement();
   if(match(RETURN)) return returnStatement();
   if(match(WHILE)) return whileStatement();
-  if(match(LEFT_BRACE)) return std::make_shared<Stmt::Block>(block(inLoop));
-  if(match(BREAK)) return breakStatement(inLoop);
+  if(match(LEFT_BRACE)) return std::make_shared<Stmt::Block>(block());
+  if(match(BREAK)) return breakStatement();
   return expressionStatement();
 }
 
-StmtPtr Parser::breakStatement(bool inLoop) {
-  if(!inLoop) parserError(previous(), "'break' statement outside of a loop.");
+StmtPtr Parser::breakStatement() {
+  Token keyword = previous();
   consume(SEMICOLON, "Expect ';' after 'break'");
-  return std::make_shared<Stmt::Break>();
+  return std::make_shared<Stmt::Break>(keyword);
 }
 
-StmtPtr Parser::ifStatement(bool inLoop) {
+StmtPtr Parser::ifStatement() {
   consume(LEFT_PAREN, "Expect '(' after 'if'.");
   ExprPtr condition = expression();
   consume(RIGHT_PAREN, "Expect ')' after if condition.");
 
-  StmtPtr thenBranch { statement(inLoop) };
+  StmtPtr thenBranch { statement() };
   StmtPtr elseBranch { nullptr };
   if(match(ELSE)) {
-    elseBranch = statement(inLoop);
+    elseBranch = statement();
   }
   auto ifstmt = std::make_shared<Stmt::If>(
       condition, thenBranch, elseBranch);
   return ifstmt;
 }
 
-std::vector<StmtPtr> Parser::block(bool inLoop) {
+std::vector<StmtPtr> Parser::block() {
   std::vector<StmtPtr> statements;
   while(!check(RIGHT_BRACE) && !isAtEnd()) {
-    statements.push_back(declaration(inLoop));
+    statements.push_back(declaration());
   }
   consume(RIGHT_BRACE, "Expect '}' after end of a block");
   return statements;
 }
 
-StmtPtr Parser::declaration(bool inLoop) {
+StmtPtr Parser::declaration() {
   try {
     if(match(FUN)) return function("function");
     if(match(VAR)) return varDeclaration();
-    return statement(inLoop);
+    return statement();
   } catch(ParseError error) {
     synchronize();
     return nullptr;
@@ -358,7 +358,7 @@ std::shared_ptr<Stmt::Function> Parser::function(std::string kind) {
   }
   consume(RIGHT_PAREN, "Expect ')' after parameters");
   consume(LEFT_BRACE, "Expect '{' after function parameters");
-  std::vector<StmtPtr> body = block(false);
+  std::vector<StmtPtr> body = block();
   return std::make_shared<Stmt::Function>(name, args, body);
 }
 

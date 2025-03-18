@@ -69,11 +69,11 @@ class Parser {
   StmtPtr expressionStatement(); 
   StmtPtr whileStatement(); 
   StmtPtr forStatement(); 
-  StmtPtr statement(bool inLoop=false); 
-  StmtPtr breakStatement(bool inLoop); 
-  StmtPtr ifStatement(bool inLoop); 
-  Stmts block(bool inLoop); 
-  StmtPtr declaration(bool inLoop=false); 
+  StmtPtr statement(); 
+  StmtPtr breakStatement(); 
+  StmtPtr ifStatement(); 
+  Stmts block(); 
+  StmtPtr declaration(); 
   std::shared_ptr<Stmt::Function> function(std::string kind); 
   StmtPtr varDeclaration(); 
 public:
