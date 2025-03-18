@@ -33,7 +33,11 @@ void Resolver::resolveLocal(Expr::Expr* expr, Token name) {
   }
 }
 
-void Resolver::resolveFunction(Stmt::Function* function) {
+void Resolver::resolveFunction(Stmt::Function* function,
+    FunctionType type) {
+  FunctionType enclosingFunction = currentFunction;
+  currentFunction = type;
+
   beginScope();
   for(const auto& param: function->args) {
     declare(param);
@@ -41,6 +45,8 @@ void Resolver::resolveFunction(Stmt::Function* function) {
   }
   resolve(function->body);
   endScope();
+
+  currentFunction = enclosingFunction;
 }
 
 void Resolver::beginScope() {
@@ -56,7 +62,12 @@ void Resolver::endScope() {
 void Resolver::declare(Token name) {
   if(scopes.empty()) return;
   DEBPRINT("Declaring: " + name.lexeme);
-  scopes.back()[name.lexeme] = false;
+  Scope& scope = scopes.back();
+  if(scope.contains(name.lexeme)) {
+    lox->error(name,
+        "Already a variable with this name in this scope");
+  }
+  scope[name.lexeme] = false;
 }
 
 void Resolver::define(Token name) {
@@ -66,7 +77,8 @@ void Resolver::define(Token name) {
 }
 
 Resolver::Resolver(Interpreter& interpreter, Lox* lox)
-  : interpreter { interpreter }, scopes {}, lox {lox} {}
+  : interpreter { interpreter }, scopes {}, lox {lox},
+  currentFunction { NONE } {}
 
 
 Value Resolver::visitBinop(Expr::Binop* expr) {
@@ -166,11 +178,14 @@ Value Resolver::visitFunctionStmt(Stmt::Function* stmt) {
   declare(stmt->name);
   define(stmt->name);
 
-  resolveFunction(stmt);
+  resolveFunction(stmt, FUNCTION);
   return Nil();
 }
 
 Value Resolver::visitReturnStmt(Stmt::Return* stmt) {
+  if(currentFunction == NONE) {
+    lox->error(stmt->keyword, "Return statement outside of a function.");
+  }
   if(stmt->value) resolve(stmt->value);
   return Nil();
 }

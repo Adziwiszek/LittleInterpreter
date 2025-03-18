@@ -9,19 +9,28 @@
 
 using Scope = std::map<std::string, bool>;
 
+
 class Resolver : public Visitor {
+  enum FunctionType {
+    NONE,
+    FUNCTION
+  };
+
   Interpreter& interpreter;
   Lox* lox;
   std::vector<Scope> scopes;
+  FunctionType currentFunction;
 
   void resolveLocal(Expr::Expr* expr, Token name);
-  void resolveFunction(Stmt::Function* function);
+  void resolveFunction(Stmt::Function* function,
+      FunctionType type);
 
   void beginScope();
   void endScope();
 
   void declare(Token name);
   void define(Token name);
+
 public:
   Resolver(Interpreter& interpreter, Lox* lox);
 

@@ -1,4 +1,6 @@
 var a;
+return 42;
+break;
 
 {
   var a = a;

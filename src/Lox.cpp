@@ -46,6 +46,9 @@ void Lox::run(std::string source) {
 
   Resolver resolver(interpreter, this);
   resolver.resolve(program);
+  
+  // Stop if there was a resolver error 
+  if(hadError) return;
 
   interpreter.interpret(program);
 }
