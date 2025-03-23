@@ -64,12 +64,13 @@ class Parser {
 
   ParseError parserError(Token token, std::string message); 
 
+  StmtPtr statement(); 
+  StmtPtr classDeclaration();
   StmtPtr returnStatement();
   StmtPtr printStatement(); 
   StmtPtr expressionStatement(); 
   StmtPtr whileStatement(); 
   StmtPtr forStatement(); 
-  StmtPtr statement(); 
   StmtPtr breakStatement(); 
   StmtPtr ifStatement(); 
   Stmts block(); 

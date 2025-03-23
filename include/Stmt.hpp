@@ -16,6 +16,20 @@ class Stmt {
     virtual Value accept(Visitor* visitor) = 0;
 };
 
+class Function;
+using Methods = std::vector<std::shared_ptr<Function>>;
+
+class Class : public Stmt {
+public:
+  Token name;
+  std::unique_ptr<Expr::Variable> superclass;
+  Methods methods;
+
+  Class(Token name, const Methods& methods);
+  virtual Value accept(Visitor* visitor) override; 
+};
+
+
 using StmtPtr = std::shared_ptr<Stmt>;
 using Stmts   = std::vector<StmtPtr>;
 
@@ -106,6 +120,7 @@ public:
   Var(ExprPtr expr, Token name);
   virtual Value accept(Visitor* visitor) override; 
 };
+
 
 }; // namespace Stmt
    

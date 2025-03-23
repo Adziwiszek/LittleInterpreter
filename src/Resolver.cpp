@@ -197,3 +197,9 @@ Value Resolver::visitReturnStmt(Stmt::Return* stmt) {
   if(stmt->value) resolve(stmt->value);
   return Nil();
 }
+
+Value Resolver::visitClassStmt(Stmt::Class* stmt) {
+  declare(stmt->name);
+  define(stmt->name);
+  return Nil();
+}

@@ -76,6 +76,7 @@ public:
   virtual Value visitWhileStmt(Stmt::While* stmt) override; 
   virtual Value visitBreakStmt(Stmt::Break* stmt) override; 
 
+  virtual Value visitClassStmt(Stmt::Class* stmt) override;
   virtual Value visitCall(Expr::Call* expr) override; 
   virtual Value visitFunctionStmt(Stmt::Function* stmt) override;
   virtual Value visitReturnStmt(Stmt::Return* stmt) override;

@@ -333,6 +333,7 @@ std::vector<StmtPtr> Parser::block() {
 
 StmtPtr Parser::declaration() {
   try {
+    if(match(CLASS)) return classDeclaration();
     if(match(FUN)) return function("function");
     if(match(VAR)) return varDeclaration();
     return statement();
@@ -340,6 +341,18 @@ StmtPtr Parser::declaration() {
     synchronize();
     return nullptr;
   }
+}
+
+StmtPtr Parser::classDeclaration() {
+  Token name = consume(IDENTIFIER, "Expect a class name.");
+  consume(LEFT_BRACE, "Expect '{' before class body");
+
+  Stmt::Methods methods;
+  while(!check(RIGHT_BRACE) && !isAtEnd()) {
+    methods.push_back(function("method"));
+  }
+  consume(RIGHT_BRACE, "Expect '}' after class body");
+  return std::make_shared<Stmt::Class>(name, methods);
 }
 
 std::shared_ptr<Stmt::Function> Parser::function(std::string kind) {

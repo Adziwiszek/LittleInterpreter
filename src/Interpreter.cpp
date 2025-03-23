@@ -1,6 +1,7 @@
 #include "../include/Interpreter.hpp"
 #include "../include/NativeFunctions.hpp"
 #include "../include/LoxFunction.hpp"
+#include "../include/LoxClass.hpp"
 
 #include <iostream>
 
@@ -248,6 +249,14 @@ Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
   Value valfun = Value(calfun);
   // defining function in environment
   environment->define(stmt->name.lexeme, valfun);
+  return Nil();
+}
+
+Value Interpreter::visitClassStmt(Stmt::Class* stmt) {
+  environment->define(stmt->name.lexeme, Nil());
+  std::shared_ptr<LoxClass> klass = std::make_shared<LoxClass>(stmt->name.lexeme);
+  // TODO fix LoxClass being assigned to Value
+  //environment->assign(stmt->name, klass);
   return Nil();
 }
 

@@ -9,6 +9,13 @@ Value Stmt::Expr::accept(Visitor* visitor) {
 
 using namespace Stmt;
 
+Class::Class(Token name, const Methods& methods) : name{name}, methods{methods} {}
+
+Value Class::accept(Visitor* visitor) {
+  if(!visitor) return Nil();
+  return visitor->visitClassStmt(this);
+}
+
 Return::Return(const Token& keyword, const ExprPtr& value)
   : keyword { keyword }, value { std::move(value) } {}
 
