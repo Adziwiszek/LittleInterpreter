@@ -203,3 +203,8 @@ Value Resolver::visitClassStmt(Stmt::Class* stmt) {
   define(stmt->name);
   return Nil();
 }
+
+Value Resolver::visitGetExpr(Expr::Get* expr) {
+  resolve(expr->object);
+  return Nil();
+}

@@ -29,6 +29,15 @@ public:
   virtual Value accept(Visitor* visitor) override; 
 };
 
+class Get : public Expr {
+public:
+  ExprPtr object;
+  Token name;
+
+  Get(ExprPtr object, Token name);
+  virtual Value accept(Visitor* visitor) override; 
+};
+
 class Logical : public Expr {
 public:
   ExprPtr left;

@@ -16,6 +16,7 @@ Value Class::accept(Visitor* visitor) {
   return visitor->visitClassStmt(this);
 }
 
+
 Return::Return(const Token& keyword, const ExprPtr& value)
   : keyword { keyword }, value { std::move(value) } {}
 

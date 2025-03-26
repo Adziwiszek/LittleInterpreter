@@ -27,6 +27,7 @@ public:
   virtual Value visitFunctionStmt(Stmt::Function* stmt) = 0;
   virtual Value visitReturnStmt(Stmt::Return* stmt) = 0;
   virtual Value visitCall(Expr::Call* expr) = 0; 
+  virtual Value visitGetExpr(Expr::Get* expr) = 0; 
 };
 
 /*class AstPrinter : public Visitor {

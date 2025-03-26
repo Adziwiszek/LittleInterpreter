@@ -33,6 +33,13 @@ Value Call::accept(Visitor* visitor) {
   return visitor->visitCall(this);
 }
 
+Get::Get(ExprPtr object, Token name) : object{object}, name{name} {}
+
+Value Get::accept(Visitor* visitor) {
+  if(!visitor) return Nil();
+  return visitor->visitGetExpr(this);
+}
+
 Logical::Logical(std::shared_ptr<Expr> left,
     Token op,
     std::shared_ptr<Expr> right)
