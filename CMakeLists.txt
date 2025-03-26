@@ -17,6 +17,7 @@ set(SOURCES
   src/NativeFunctions.cpp
   src/LoxFunction.cpp
   src/LoxClass.cpp
+  src/LoxInstance.cpp
 
   src/Token.cpp
   src/Types.cpp
@@ -36,6 +37,7 @@ set(HEADERS
   include/NativeFunctions.hpp
   include/LoxFunction.hpp
   include/LoxClass.hpp
+  include/LoxInstance.hpp
 
   include/Token.hpp
   include/Types.hpp

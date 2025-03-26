@@ -1,4 +1,4 @@
-var a = "as";
-a = 42;
+class Bagel {}
 
-print a;
+var bagel = Bagel();
+print bagel;

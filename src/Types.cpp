@@ -1,5 +1,8 @@
 #include "../include/Types.hpp"
 #include "../include/Token.hpp"
+#include "../include/LoxInstance.hpp"
+
+#include <iostream>
 
 Value::Value(const Value& other)
   : value{other.value} {}
@@ -26,7 +29,14 @@ std::string Value::toString() const {
     return std::to_string(f);
   } else if(std::holds_alternative<bool>(value)) {
     return std::get<bool>(value) ? "1" : "0";
+  } else if(std::holds_alternative<std::shared_ptr<Callable>>(value)) {
+    auto callable_ptr = std::get<std::shared_ptr<Callable>>(value);
+    return callable_ptr->toString();
+  } else if(std::holds_alternative<std::shared_ptr<LoxInstance>>(value)) {
+    auto instance_ptr = std::get<std::shared_ptr<LoxInstance>>(value);
+    return instance_ptr->toString();
   } else if(std::holds_alternative<Nil>(value)) {
+
     return "nil";
   }
   return "";

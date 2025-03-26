@@ -256,7 +256,7 @@ Value Interpreter::visitClassStmt(Stmt::Class* stmt) {
   environment->define(stmt->name.lexeme, Nil());
   std::shared_ptr<LoxClass> klass = std::make_shared<LoxClass>(stmt->name.lexeme);
   // TODO fix LoxClass being assigned to Value
-  //environment->assign(stmt->name, klass);
+  environment->assign(stmt->name, klass);
   return Nil();
 }
 

@@ -5,6 +5,10 @@ LoxFunction::LoxFunction(std::shared_ptr<Stmt::Function> declaration,
     std::shared_ptr<Environment> env)
   : declaration{ declaration }, closure { std::move(env) } {}
 
+std::string LoxFunction::toString() {
+  return "fun type";
+}
+
 int LoxFunction::arity() {
   return declaration->args.size();
 }

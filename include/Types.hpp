@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <variant>
 #include <vector>
 #include <string>
@@ -9,14 +10,9 @@
 // forward declarations
 class Interpreter;
 class Value;
+class LoxInstance;
 class Token;
 using Tokens = std::vector<Token>;
-/*namespace Stmt {
-  class Function{
-  public:
-    Tokens args;
-  };
-};*/
 
 // Used for representing NULL value in my language
 class Nil {public: Nil() {} };
@@ -25,6 +21,7 @@ class Callable {
 public:
   virtual int arity() = 0;
   virtual Value call(Interpreter* interpreter, std::vector<Value> args) = 0;
+  virtual std::string toString() = 0;
   virtual ~Callable() = default;
 };
 
@@ -36,7 +33,8 @@ public:
     bool, 
     std::string, 
     Nil, 
-    std::shared_ptr<Callable>
+    std::shared_ptr<Callable>,
+    std::shared_ptr<LoxInstance>
   > value;
 
   Value();
