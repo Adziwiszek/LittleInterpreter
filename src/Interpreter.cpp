@@ -262,10 +262,6 @@ Value Interpreter::visitClassStmt(Stmt::Class* stmt) {
   return Nil();
 }
 
-// helper class for visitor in visitGetExpr
-template<class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-
 Value Interpreter::visitGetExpr(Expr::Get* expr) {
   Value value = evaluate(expr->object);
   try {
@@ -273,8 +269,23 @@ Value Interpreter::visitGetExpr(Expr::Get* expr) {
       std::get<std::shared_ptr<LoxInstance>>(value.value);
     return classInstance->get(expr->name);
   } catch(const std::bad_variant_access& e) {
-    throw RuntimeError(expr->name, "Only instances have properties");
+    throw RuntimeError(expr->name, "Only instances have properties.");
   }
+}
+
+Value Interpreter::visitSetExpr(Expr::Set* expr) {
+  Value object = evaluate(expr->object);
+  try {
+    std::shared_ptr<LoxInstance> classInstance = 
+      std::get<std::shared_ptr<LoxInstance>>(object.value);
+
+    Value value = evaluate(expr->value);
+    classInstance->set(expr->name, value);
+    return value;
+  } catch(const std::bad_variant_access& e) {
+    throw RuntimeError(expr->name, "Only instances have fields.");
+  }
+
 }
 
 Value Interpreter::visitReturnStmt(Stmt::Return* stmt) {

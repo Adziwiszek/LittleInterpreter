@@ -40,6 +40,14 @@ Value Get::accept(Visitor* visitor) {
   return visitor->visitGetExpr(this);
 }
 
+Set::Set(ExprPtr object, Token name, ExprPtr value) 
+  : object{object}, name{name}, value{value} {}
+
+Value Set::accept(Visitor* visitor) {
+  if(!visitor) return Nil();
+  return visitor->visitSetExpr(this);
+}
+
 Logical::Logical(std::shared_ptr<Expr> left,
     Token op,
     std::shared_ptr<Expr> right)

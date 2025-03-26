@@ -38,6 +38,16 @@ public:
   virtual Value accept(Visitor* visitor) override; 
 };
 
+class Set : public Expr {
+public:
+  ExprPtr object;
+  Token name;
+  ExprPtr value;
+
+  Set(ExprPtr object, Token name, ExprPtr value);
+  virtual Value accept(Visitor* visitor) override; 
+};
+
 class Logical : public Expr {
 public:
   ExprPtr left;

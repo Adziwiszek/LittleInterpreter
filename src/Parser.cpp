@@ -37,6 +37,8 @@ ExprPtr Parser::assignment() {
     if(Expr::Variable* v = dynamic_cast<Expr::Variable*>(&*expr)) {
       Token name = v->name;
       return std::make_shared<Expr::Assign>(name, value);
+    } else if(Expr::Get* get = dynamic_cast<Expr::Get*>(&*expr)) {
+      return std::make_shared<Expr::Set>(get->object, get->name, value);
     }
     lox->error(equals, "Invalid assignment target");
   }

@@ -11,5 +11,6 @@ class LoxInstance {
 public:
   LoxInstance(LoxClass* klass);
   Value get(Token fieldName);
+  void set(Token fieldName, Value value);
   std::string toString();
 };

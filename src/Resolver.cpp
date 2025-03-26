@@ -208,3 +208,8 @@ Value Resolver::visitGetExpr(Expr::Get* expr) {
   resolve(expr->object);
   return Nil();
 }
+Value Resolver::visitSetExpr(Expr::Set* expr) {
+  resolve(expr->object);
+  resolve(expr->value);
+  return Nil();
+}

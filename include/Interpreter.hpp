@@ -78,9 +78,10 @@ public:
 
   virtual Value visitClassStmt(Stmt::Class* stmt) override;
   virtual Value visitCall(Expr::Call* expr) override; 
-  virtual Value visitGetExpr(Expr::Get* expr) override; 
   virtual Value visitFunctionStmt(Stmt::Function* stmt) override;
   virtual Value visitReturnStmt(Stmt::Return* stmt) override;
+  virtual Value visitGetExpr(Expr::Get* expr) override; 
+  virtual Value visitSetExpr(Expr::Set* expr) override; 
 
   Interpreter(std::shared_ptr<Lox> lox);
 

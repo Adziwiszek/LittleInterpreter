@@ -13,3 +13,7 @@ Value LoxInstance::get(Token fieldName) {
 
   throw RuntimeError(fieldName, "Undefined property '" + fieldName.lexeme + "'.");
 }
+
+void LoxInstance::set(Token fieldName, Value value) {
+  fields.insert({fieldName.lexeme, value});
+}

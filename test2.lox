@@ -1,4 +1,7 @@
 class Bagel {}
 
 var bagel = Bagel();
+bagel.dupa = "123";
+
 print bagel;
+print bagel.dupa;
