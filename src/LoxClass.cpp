@@ -2,7 +2,15 @@
 #include "../include/LoxInstance.hpp"
 #include <iostream>
 
-LoxClass::LoxClass(const std::string& name) : name{name} {}
+LoxClass::LoxClass(const std::string& name, const std::map<std::string, FunPtr>& methods) :
+  name{name}, methods{methods} {}
+
+FunPtr LoxClass::findMethod(const std::string& name) {
+  if(methods.contains(name)) {
+    return methods[name];
+  }
+  return nullptr;
+}
 
 std::string LoxClass::toString() { 
   std::cout << "dupa klasa\n";

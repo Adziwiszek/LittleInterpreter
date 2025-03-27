@@ -354,7 +354,9 @@ StmtPtr Parser::classDeclaration() {
 
   Stmt::Methods methods;
   while(!check(RIGHT_BRACE) && !isAtEnd()) {
-    methods.push_back(function("method"));
+    consume(FUN, "Expect 'fun' before method.");
+    methods.push_back(function("function"));
+    //methods.push_back(function("method"));
   }
   consume(RIGHT_BRACE, "Expect '}' after class body");
   return std::make_shared<Stmt::Class>(name, methods);

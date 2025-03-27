@@ -11,6 +11,9 @@ Value LoxInstance::get(Token fieldName) {
     return fields[fieldName.lexeme];
   }
 
+  FunPtr method = klass->findMethod(fieldName.lexeme);
+  if(method) return method;
+
   throw RuntimeError(fieldName, "Undefined property '" + fieldName.lexeme + "'.");
 }
 

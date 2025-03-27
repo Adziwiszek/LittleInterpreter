@@ -1,7 +1,8 @@
-class Bagel {}
+class Bagel {
+  fun eat() {
+    print "eating...";
+  }
+}
 
 var bagel = Bagel();
-bagel.dupa = "123";
-
-print bagel;
-print bagel.dupa;
+bagel.eat();

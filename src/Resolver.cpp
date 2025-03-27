@@ -201,6 +201,12 @@ Value Resolver::visitReturnStmt(Stmt::Return* stmt) {
 Value Resolver::visitClassStmt(Stmt::Class* stmt) {
   declare(stmt->name);
   define(stmt->name);
+
+  for(auto& method: stmt->methods) {
+    FunctionType declaration = FunctionType::METHOD;
+    resolveFunction(method.get(), declaration);
+  }
+
   return Nil();
 }
 

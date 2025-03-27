@@ -14,3 +14,4 @@ public:
   virtual Value call(Interpreter *interpreter,
                      std::vector<Value> args) override;
 };
+using FunPtr = std::shared_ptr<LoxFunction>;

@@ -1,10 +1,10 @@
 #include "../include/Interpreter.hpp"
 #include "../include/NativeFunctions.hpp"
-#include "../include/LoxFunction.hpp"
 #include "../include/LoxClass.hpp"
 #include "../include/LoxInstance.hpp"
 
 #include <iostream>
+
 
 void Interpreter::checkNumberOperand(Token op, Value& val) const {
   if(std::holds_alternative<float>(val.value)) return;
@@ -256,8 +256,15 @@ Value Interpreter::visitFunctionStmt(Stmt::Function* stmt) {
 
 Value Interpreter::visitClassStmt(Stmt::Class* stmt) {
   environment->define(stmt->name.lexeme, Nil());
-  std::shared_ptr<LoxClass> klass = std::make_shared<LoxClass>(stmt->name.lexeme);
-  // TODO fix LoxClass being assigned to Value
+
+  std::map<std::string, FunPtr> methods;
+  for(auto& method: stmt->methods) {
+    FunPtr function = std::make_shared<LoxFunction>(method, environment);
+    methods.insert({method->name.lexeme, function});
+  }
+
+  std::shared_ptr<LoxClass> klass = 
+    std::make_shared<LoxClass>(stmt->name.lexeme, methods);
   environment->assign(stmt->name, klass);
   return Nil();
 }
