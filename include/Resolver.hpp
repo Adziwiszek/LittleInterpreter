@@ -7,9 +7,10 @@
 #include "Lox.hpp"
 #include "Interpreter.hpp"
 
-using Scope = std::map<std::string, bool>;
 
 class Resolver : public Visitor<Value> {
+  using Scope = std::map<std::string, bool>;
+
   enum class FunctionType {
     NONE,
     FUNCTION,

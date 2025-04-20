@@ -6,14 +6,27 @@
 #include "Lox.hpp"
 #include "Visitor.hpp"
 
+#include <map>
+#include <vector>
+#include <optional>
+
+
 class TypeChecker : public Visitor<Type> {
- Lox& lox;
+  using Scope = std::map<std::string, Type>;
+
+  Lox& lox;
+  std::vector<Scope> scopes {};
 public:
   TypeChecker(Lox& lox); 
   ~TypeChecker();
   Type typeCheck(Expr::ExprPtr expr);
   Type typeCheck(Stmt::StmtPtr stmt);
   Type typeCheck(const Stmt::Stmts& program);
+
+  void beginScope();
+  void endScope();
+
+  Type getVarType(const Token& varName);
 
   virtual Type visitBinop(Expr::Binop* expr) override; 
   virtual Type visitUnop(Expr::Unop* expr) override; 

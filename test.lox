@@ -1,2 +1,2 @@
-print -"a";
-
+var v = true;
+print v + 32;
