@@ -1,12 +1,12 @@
 #pragma once
 
+#include <iostream>
 #include <memory>
 #include <vector>
-#include <iostream>
 
+#include "Expr.hpp"
 #include "Lox.hpp"
 #include "Stmt.hpp"
-#include "Expr.hpp"
 
 // Forward declarations
 class Value;
@@ -30,55 +30,54 @@ using Stmt::Stmts, Stmt::StmtPtr, Expr::Exprs, Expr::ExprPtr;
 
 class ParseError : public std::runtime_error {
 public:
-  ParseError(const std::string& message) : std::runtime_error(message) {}
+  ParseError(const std::string &message) : std::runtime_error(message) {}
   ~ParseError() = default;
 };
 
 class Parser {
-  std::shared_ptr<Lox> lox;
+  Lox &lox;
   Tokens tokens;
   int current;
 
-  ExprPtr expression(); 
-  ExprPtr orExpr(); 
-  ExprPtr andExpr(); 
-  ExprPtr assignment(); 
-  ExprPtr equality(); 
-  ExprPtr comparison(); 
-  ExprPtr term(); 
-  ExprPtr factor(); 
-  ExprPtr unary(); 
-  ExprPtr call(); 
-  ExprPtr finishCall(ExprPtr callee); 
-  ExprPtr primary(); 
+  ExprPtr expression();
+  ExprPtr orExpr();
+  ExprPtr andExpr();
+  ExprPtr assignment();
+  ExprPtr equality();
+  ExprPtr comparison();
+  ExprPtr term();
+  ExprPtr factor();
+  ExprPtr unary();
+  ExprPtr call();
+  ExprPtr finishCall(ExprPtr callee);
+  ExprPtr primary();
 
-  template <typename... TokenTypes>
-  bool match(TokenTypes... types); 
-  Token consume(TokenType type, std::string message); 
-  bool check(TokenType type); 
-  Token advance(); 
-  bool isAtEnd(); 
-  Token peek(); 
-  Token previous(); 
-  void synchronize(); 
+  template <typename... TokenTypes> bool match(TokenTypes... types);
+  Token consume(TokenType type, std::string message);
+  bool check(TokenType type);
+  Token advance();
+  bool isAtEnd();
+  Token peek();
+  Token previous();
+  void synchronize();
 
-  ParseError parserError(Token token, std::string message); 
+  ParseError parserError(Token token, std::string message);
 
-  StmtPtr statement(); 
+  StmtPtr statement();
   StmtPtr classDeclaration();
   StmtPtr returnStatement();
-  StmtPtr printStatement(); 
-  StmtPtr expressionStatement(); 
-  StmtPtr whileStatement(); 
-  StmtPtr forStatement(); 
-  StmtPtr breakStatement(); 
-  StmtPtr ifStatement(); 
-  Stmts block(); 
-  StmtPtr declaration(); 
-  std::shared_ptr<Stmt::Function> function(std::string kind); 
-  StmtPtr varDeclaration(); 
-public:
-  Parser(std::vector<Token> tokens, std::shared_ptr<Lox> lox);
-  Stmts parse(); 
-};
+  StmtPtr printStatement();
+  StmtPtr expressionStatement();
+  StmtPtr whileStatement();
+  StmtPtr forStatement();
+  StmtPtr breakStatement();
+  StmtPtr ifStatement();
+  Stmts block();
+  StmtPtr declaration();
+  std::shared_ptr<Stmt::Function> function(std::string kind);
+  StmtPtr varDeclaration();
 
+public:
+  Parser(std::vector<Token> tokens, Lox &lox);
+  Stmts parse();
+};

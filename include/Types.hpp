@@ -7,6 +7,28 @@
 #include <memory>
 
 
+// Basic Types
+enum class Type {
+  NIL,
+  BOOLEAN,
+  NUMBER,
+  STRING,
+  FUNCTION,
+};
+
+inline std::string typeToString(Type type) {
+  switch (type) {
+    case Type::NIL: return "nil";
+    case Type::BOOLEAN: return "boolean";
+    case Type::NUMBER: return "number";
+    case Type::STRING: return "string";
+    case Type::FUNCTION: return "function";
+    //case Type::CLASS: return "class";
+    //case Type::INSTANCE: return "instance";
+    default: return "Unknown Type!";
+  }
+}
+
 // forward declarations
 class Interpreter;
 class Value;
@@ -54,7 +76,12 @@ public:
 
   template <typename T>
   T get() const;
+
   std::string toString() const; 
+
+  Type getType() const;
+  bool isType(Type type) const;
+  std::string getTypeName() const;
 };
 
 struct Literal {

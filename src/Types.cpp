@@ -42,6 +42,35 @@ std::string Value::toString() const {
   return "";
 }
 
+Type Value::getType() const {
+  return std::visit([](auto&& arg) -> Type {
+      using T = std::decay_t<decltype(arg)>;
+      if constexpr (std::is_same_v<T, Nil>) return Type::NIL;
+      else if constexpr (std::is_same_v<T, bool>) return Type::BOOLEAN;
+      else if constexpr (std::is_same_v<T, float>) return Type::NUMBER;
+      else if constexpr (std::is_same_v<T, std::string>) return Type::STRING;
+      //else if constexpr (std::is_same_v<T, std::shared_ptr<LoxClass>>) return Type::CLASS;
+      //else if constexpr (std::is_same_v<T, std::shared_ptr<LoxInstance>>) return Type::INSTANCE;
+      else return Type::FUNCTION; // For Callable
+    }, value);
+}
+
+bool Value::isType(Type type) const {
+  return getType() == type;
+}
+
+std::string Value::getTypeName() const {
+  switch (getType()) {
+    case Type::NIL: return "nil";
+    case Type::BOOLEAN: return "boolean";
+    case Type::NUMBER: return "number";
+    case Type::STRING: return "string";
+    case Type::FUNCTION: return "function";
+    //case Type::CLASS: return "class";
+    //case Type::INSTANCE: return "instance";
+    default: return "Unknown Type!";
+  }
+}
 
 Literal::Literal(float v): value {v} {}
 Literal::Literal(bool v): value {v} {}
@@ -57,3 +86,4 @@ T Literal::get() const {
 std::string Literal::toString() const {
   return value.toString();
 }
+

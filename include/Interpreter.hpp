@@ -44,9 +44,9 @@ public:
   ~Return() = default;
 };
 
-class Interpreter : public Visitor {
+class Interpreter : public Visitor<Value> {
   std::shared_ptr<Environment> environment;
-  std::shared_ptr<Lox> lox;
+  Lox& lox;
   std::map<Expr::Expr*, int> locals {};
 
   void checkNumberOperand(Token op, Value& val) const; 
@@ -84,7 +84,7 @@ public:
   virtual Value visitSetExpr(Expr::Set* expr) override; 
   virtual Value visitThisExpr(Expr::This* expr) override;
 
-  Interpreter(std::shared_ptr<Lox> lox);
+  Interpreter(Lox& lox);
 
   void execute(const StmtPtr& stmt); 
   Value evaluate(const ExprPtr& expr); 

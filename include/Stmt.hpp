@@ -13,7 +13,8 @@ namespace Stmt {
 class Stmt {
   public:
     virtual ~Stmt() = default;
-    virtual Value accept(Visitor* visitor) = 0;
+    virtual Value accept(Visitor<Value>* visitor) = 0;
+    virtual Type accept(Visitor<Type>* visitor) = 0;
 };
 
 class Function;
@@ -26,7 +27,8 @@ public:
   Methods methods;
 
   Class(Token name, const Methods& methods);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 
@@ -39,7 +41,8 @@ public:
   ExprPtr value;
 
   Return(const Token& keyword, const ExprPtr& value);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class Function : public Stmt {
@@ -50,14 +53,16 @@ public:
 
   Function(Token name, const Tokens& args, const Stmts& body);
   Function(const Function& other);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class Break : public Stmt {
 public:
   Token keyword;
   Break(Token keyword);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class While : public Stmt {
@@ -66,17 +71,20 @@ public:
   std::shared_ptr<Stmt> body;
 
   While(std::shared_ptr<Expr::Expr> condition, std::shared_ptr<Stmt> body);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class If : public Stmt {
 public:
+  int line;
   ExprPtr condition;
   StmtPtr thenBranch;
   StmtPtr elseBranch;
 
   If(ExprPtr& condition, StmtPtr& thenBranch, StmtPtr& elseBranch);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 
@@ -93,7 +101,8 @@ public:
     ((statements.push_back(std::move(stmts))), ...);
   }
 
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class Expr : public Stmt {
@@ -101,7 +110,8 @@ public:
   ExprPtr expr;
 
   Expr(ExprPtr expr);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class Print : public Stmt {
@@ -109,7 +119,8 @@ public:
   ExprPtr expr;
 
   Print(ExprPtr expr);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 class Var : public Stmt {
@@ -118,7 +129,8 @@ public:
   Token name;
 
   Var(ExprPtr expr, Token name);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value>* visitor) override; 
+  virtual Type accept(Visitor<Type>* visitor) override; 
 };
 
 

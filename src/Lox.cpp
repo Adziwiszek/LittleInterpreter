@@ -3,6 +3,7 @@
 #include "../include/Scanner.hpp"
 #include "../include/Interpreter.hpp"
 #include "../include/Resolver.hpp"
+#include "../include/TypeChecker.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -33,12 +34,12 @@ void Lox::runPrompt() {
 
 void Lox::run(std::string source) {
   if(hadError) return;
-  Scanner scanner(source, std::make_shared<Lox>(this));
+  Scanner scanner(source, *this);
   auto tokens = scanner.scanTokens();
 
 
-  Parser parser(tokens, std::make_shared<Lox>(this));
-  Interpreter interpreter(std::make_shared<Lox>(this)); 
+  Parser parser(tokens, *this);
+  Interpreter interpreter(*this); 
 
   std::vector<StmtPtr> program = parser.parse();
   // Stop if there was a syntax error 
@@ -46,8 +47,11 @@ void Lox::run(std::string source) {
 
   Resolver resolver(interpreter, this);
   resolver.resolve(program);
+
+  TypeChecker typechecker(*this);
+  typechecker.typeCheck(program);
   
-  // Stop if there was a resolver error 
+  // Stop if there was a resolver or type checker error 
   if(hadError) return;
 
   interpreter.interpret(program);

@@ -3,26 +3,28 @@
 #include <memory>
 #include <vector>
 
-#include "Types.hpp"
 #include "Token.hpp"
+#include "Types.hpp"
 
-class Visitor;
+template <typename T> class Visitor;
 
 namespace Expr {
 
 class Expr {
 public:
-  virtual Value accept(Visitor* visitor) = 0;
+  virtual Value accept(Visitor<Value> *visitor) = 0;
+  virtual Type accept(Visitor<Type> *visitor) = 0;
   virtual ~Expr() = default;
 };
 
 using ExprPtr = std::shared_ptr<Expr>;
-using Exprs  = std::vector<ExprPtr>;
+using Exprs = std::vector<ExprPtr>;
 
 struct This : public Expr {
   Token keyword;
   This(Token keyword);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Call : public Expr {
@@ -30,9 +32,9 @@ public:
   ExprPtr callee;
   Token paren;
   Exprs arguments;
-  Call(ExprPtr callee, Token paren, 
-       const std::vector<ExprPtr>& arguments);
-  virtual Value accept(Visitor* visitor) override; 
+  Call(ExprPtr callee, Token paren, const std::vector<ExprPtr> &arguments);
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Get : public Expr {
@@ -41,7 +43,8 @@ public:
   Token name;
 
   Get(ExprPtr object, Token name);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Set : public Expr {
@@ -51,7 +54,8 @@ public:
   ExprPtr value;
 
   Set(ExprPtr object, Token name, ExprPtr value);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Logical : public Expr {
@@ -61,7 +65,8 @@ public:
   ExprPtr right;
 
   Logical(ExprPtr left, Token op, ExprPtr right);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Assign : public Expr {
@@ -70,16 +75,18 @@ public:
   ExprPtr value;
 
   Assign(Token name, ExprPtr expr);
-  Assign(const Assign& other);
-  virtual Value accept(Visitor* visitor) override; 
+  Assign(const Assign &other);
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Variable : public Expr {
 public:
   Token name;
   Variable(Token name);
-  Variable(const Variable& other);
-  virtual Value accept(Visitor* visitor) override; 
+  Variable(const Variable &other);
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Binop : public Expr {
@@ -89,7 +96,8 @@ public:
   Token op;
 
   Binop(ExprPtr left, Token op, ExprPtr right);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Unop : public Expr {
@@ -98,7 +106,8 @@ public:
   Token op;
 
   Unop(Token op, ExprPtr expr);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Grouping : public Expr {
@@ -106,7 +115,8 @@ public:
   ExprPtr expr;
 
   Grouping(ExprPtr expr);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
 class Literal : public Expr {
@@ -117,8 +127,8 @@ public:
   Literal(float f);
   Literal(std::string s);
   Literal(Nil s);
-  virtual Value accept(Visitor* visitor) override; 
+  virtual Value accept(Visitor<Value> *visitor) override;
+  virtual Type accept(Visitor<Type> *visitor) override;
 };
 
-};
-
+}; // namespace Expr

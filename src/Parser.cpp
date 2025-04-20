@@ -40,7 +40,7 @@ ExprPtr Parser::assignment() {
     } else if(Expr::Get* get = dynamic_cast<Expr::Get*>(&*expr)) {
       return std::make_shared<Expr::Set>(get->object, get->name, value);
     }
-    lox->error(equals, "Invalid assignment target");
+    lox.error(equals, "Invalid assignment target");
   }
 
   return expr;
@@ -113,7 +113,7 @@ ExprPtr Parser::finishCall(ExprPtr callee) {
   if(!check(RIGHT_PAREN)) {
     do {
       if (args.size() >= 255) {
-        lox->error(peek(), "Can't have more than 255 arguments.");
+        lox.error(peek(), "Can't have more than 255 arguments.");
       }
       args.push_back(expression());
     } while(match(COMMA));
@@ -199,7 +199,7 @@ Token Parser::previous() {
 }
 
 ParseError Parser::parserError(Token token, std::string message) {
-  lox->error(token, message);
+  lox.error(token, message);
   return ParseError(message);
 }
 
@@ -318,6 +318,7 @@ StmtPtr Parser::breakStatement() {
 
 StmtPtr Parser::ifStatement() {
   consume(LEFT_PAREN, "Expect '(' after 'if'.");
+  int ifline = previous().line;
   ExprPtr condition = expression();
   consume(RIGHT_PAREN, "Expect ')' after if condition.");
 
@@ -328,6 +329,7 @@ StmtPtr Parser::ifStatement() {
   }
   auto ifstmt = std::make_shared<Stmt::If>(
       condition, thenBranch, elseBranch);
+  ifstmt->line = ifline;
   return ifstmt;
 }
 
@@ -373,7 +375,7 @@ std::shared_ptr<Stmt::Function> Parser::function(std::string kind) {
   if(!check(RIGHT_PAREN)) {
     do {
       if(args.size() >= 255) {
-        lox->error(peek(), "Can't have more than 255 parameters.");
+        lox.error(peek(), "Can't have more than 255 parameters.");
       }
       args.push_back(
           consume(IDENTIFIER, "Expect parameter name.")
@@ -396,8 +398,8 @@ StmtPtr Parser::varDeclaration() {
   return std::make_shared<Stmt::Var>(std::move(initializer), name);
 }
 
-Parser::Parser(std::vector<Token> tokens, std::shared_ptr<Lox> lox) :
-  tokens { tokens }, current { 0 }, lox { std::move(lox) } {}
+Parser::Parser(std::vector<Token> tokens, Lox& lox) :
+  tokens { tokens }, current { 0 }, lox { lox } {}
 
 std::vector<StmtPtr> Parser::parse() {
   std::vector<StmtPtr> statements;

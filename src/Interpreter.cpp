@@ -306,8 +306,8 @@ Value Interpreter::visitReturnStmt(Stmt::Return* stmt) {
   throw Return(value);
 }
 
-Interpreter::Interpreter(std::shared_ptr<Lox> lox) 
-  : globals { std::make_shared<Environment>() }, lox { std::move(lox) }
+Interpreter::Interpreter(Lox& lox) 
+  : globals { std::make_shared<Environment>() }, lox { lox }
 {
   std::shared_ptr<Native::Clock> clock = std::make_shared<Native::Clock>();
   globals->define("clock", clock);
@@ -341,6 +341,6 @@ void Interpreter::interpret(const Stmts& program) {
       execute(stmt);
     }
   } catch(RuntimeError error) {
-    lox->runtimeError(error); 
+    lox.runtimeError(error); 
   }
 }

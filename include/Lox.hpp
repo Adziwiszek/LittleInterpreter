@@ -20,6 +20,7 @@ public:
   void runFile(std::string path);
   void runPrompt();
   void run(std::string source);
+  //void typeError(Token token, std::string message);
   void error(Token token, std::string message);
   void error(int line, std::string message);
   void report(Token token, std::string where, std::string message);

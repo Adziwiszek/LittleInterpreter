@@ -8,8 +8,8 @@ std::string substring(std::string str, int start, int end) {
   return res;
 }
 
-Scanner::Scanner(std::string source, std::shared_ptr<Lox> lox)
-  : tokens {}, source {source}, keywords {}, lox { std::move(lox) } {
+Scanner::Scanner(std::string source, Lox& lox)
+  : tokens {}, source {source}, keywords {}, lox { lox } {
   setupKeywords(); 
 }
 
@@ -72,7 +72,7 @@ void Scanner::scanToken() {
               } else if(isalpha(c)) {
                 identifierLex();                
               } else {
-                lox->error(line, "Unexpected character!"); 
+                lox.error(line, "Unexpected character!"); 
               }
               break;
   }
@@ -121,7 +121,7 @@ void Scanner::stringLex() {
     advance();
   }
   if(isAtEnd()) {
-    lox->error(line, "Undetermined string!");
+    lox.error(line, "Undetermined string!");
   }
   advance();
   std::string finalStr = substring(source, start + 1, current - 1);
