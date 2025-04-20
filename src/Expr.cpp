@@ -25,6 +25,12 @@ Value Expr::Literal::accept(Visitor* visitor) {
 
 using namespace Expr;
 
+This::This(Token keyword) : keyword{keyword} {}
+Value This::accept(Visitor* visitor) {
+  if(!visitor) return Nil();
+  return visitor->visitThisExpr(this);
+}
+
 Call::Call(std::shared_ptr<Expr> callee, Token paren,
     const std::vector<std::shared_ptr<Expr>>& arguments)
   : callee{callee}, paren{paren}, arguments{arguments} {}

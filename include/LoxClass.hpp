@@ -4,8 +4,10 @@
 #include <string>
 
 #include "Types.hpp"
-#include "LoxFunction.hpp"
 #include "Interpreter.hpp"
+
+class LoxFunction;
+using FunPtr = std::shared_ptr<LoxFunction>;
 
 class LoxClass : public Callable {
 public:

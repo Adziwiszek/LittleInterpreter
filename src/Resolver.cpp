@@ -78,7 +78,7 @@ void Resolver::define(Token name) {
 
 Resolver::Resolver(Interpreter& interpreter, Lox* lox)
   : interpreter { interpreter }, scopes {}, lox {lox},
-  currentFunction { NONE }, inLoop {false} {}
+   inLoop {false} {}
 
 
 Value Resolver::visitBinop(Expr::Binop* expr) {
@@ -186,12 +186,12 @@ Value Resolver::visitFunctionStmt(Stmt::Function* stmt) {
   declare(stmt->name);
   define(stmt->name);
 
-  resolveFunction(stmt, FUNCTION);
+  resolveFunction(stmt, FunctionType::FUNCTION);
   return Nil();
 }
 
 Value Resolver::visitReturnStmt(Stmt::Return* stmt) {
-  if(currentFunction == NONE) {
+  if(currentFunction == FunctionType::NONE) {
     lox->error(stmt->keyword, "Return statement outside of a function.");
   }
   if(stmt->value) resolve(stmt->value);
@@ -199,13 +199,22 @@ Value Resolver::visitReturnStmt(Stmt::Return* stmt) {
 }
 
 Value Resolver::visitClassStmt(Stmt::Class* stmt) {
+  ClassType enclosingClass = currentClass;
+  currentClass = ClassType::CLASS;
+
   declare(stmt->name);
   define(stmt->name);
+
+  beginScope();
+  scopes.back().insert({"this", true});
 
   for(auto& method: stmt->methods) {
     FunctionType declaration = FunctionType::METHOD;
     resolveFunction(method.get(), declaration);
   }
+
+  endScope();
+  currentClass = enclosingClass;
 
   return Nil();
 }
@@ -217,5 +226,15 @@ Value Resolver::visitGetExpr(Expr::Get* expr) {
 Value Resolver::visitSetExpr(Expr::Set* expr) {
   resolve(expr->object);
   resolve(expr->value);
+  return Nil();
+}
+
+Value Resolver::visitThisExpr(Expr::This* expr) {
+  if(currentClass == ClassType::NONE) {
+    lox->error(expr->keyword, "Can't use 'this' outside of a class.");
+    return Nil();
+  }
+
+  resolveLocal(expr, expr->keyword);
   return Nil();
 }

@@ -2,6 +2,7 @@
 #include "../include/NativeFunctions.hpp"
 #include "../include/LoxClass.hpp"
 #include "../include/LoxInstance.hpp"
+#include "../include/LoxFunction.hpp"
 
 #include <iostream>
 
@@ -295,6 +296,10 @@ Value Interpreter::visitSetExpr(Expr::Set* expr) {
 
 }
 
+Value Interpreter::visitThisExpr(Expr::This* expr) {
+  return lookUpVariable(expr->keyword, expr);
+}
+
 Value Interpreter::visitReturnStmt(Stmt::Return* stmt) {
   Value value = Nil();
   if(stmt->value) value = evaluate(stmt->value); 
@@ -313,6 +318,7 @@ Value Interpreter::lookUpVariable(Token name, Expr::Expr* expr) {
   if(locals.contains(expr)) {
     return environment->getAt(locals[expr], name.lexeme);
   } else {
+    //std::cout << "looking in global\n"; 
     return globals->get(name);
   }
 }

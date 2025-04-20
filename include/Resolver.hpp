@@ -10,17 +10,23 @@
 using Scope = std::map<std::string, bool>;
 
 class Resolver : public Visitor {
-  enum FunctionType {
+  enum class FunctionType {
     NONE,
     FUNCTION,
     METHOD
+  };
+
+  enum class ClassType {
+    NONE,
+    CLASS,
   };
 
   Interpreter& interpreter;
   Lox* lox;
   std::vector<Scope> scopes;
 
-  FunctionType currentFunction;
+  FunctionType currentFunction { FunctionType::NONE };
+  ClassType currentClass { ClassType::NONE };
   bool inLoop;
 
   void resolveLocal(Expr::Expr* expr, Token name);
@@ -63,4 +69,5 @@ public:
   virtual Value visitReturnStmt(Stmt::Return* stmt) override;
   virtual Value visitGetExpr(Expr::Get* expr) override;
   virtual Value visitSetExpr(Expr::Set* expr) override; 
+  virtual Value visitThisExpr(Expr::This* expr) override; 
 };

@@ -1,5 +1,6 @@
 #include "../include/LoxFunction.hpp"
 #include "../include/Interpreter.hpp"
+#include "../include/LoxInstance.hpp"
 
 LoxFunction::LoxFunction(std::shared_ptr<Stmt::Function> declaration, 
     std::shared_ptr<Environment> env)
@@ -26,4 +27,12 @@ Value LoxFunction::call(Interpreter* interpreter, std::vector<Value> args) {
     return retval.value;
   }
   return Nil();
+}
+
+FunPtr LoxFunction::bind(LoxInstance* instance) {
+  std::shared_ptr<Environment> env = std::make_shared<Environment>(closure);
+  std::shared_ptr<LoxInstance> thisPtr = 
+    std::shared_ptr<LoxInstance>(instance, [](LoxInstance*){});
+  env->define("this", thisPtr);
+  return std::make_shared<LoxFunction>(declaration, env);
 }

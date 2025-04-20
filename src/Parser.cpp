@@ -140,6 +140,10 @@ ExprPtr Parser::primary() {
     }
   }
 
+  if(match(THIS)) {
+    return std::make_shared<Expr::This>(previous());
+  }
+
   if(match(IDENTIFIER)) {
     return std::make_unique<Expr::Variable>(previous());
   }

@@ -29,6 +29,7 @@ public:
   virtual Value visitCall(Expr::Call* expr) = 0; 
   virtual Value visitGetExpr(Expr::Get* expr) = 0; 
   virtual Value visitSetExpr(Expr::Set* expr) = 0; 
+  virtual Value visitThisExpr(Expr::This* expr) = 0; 
 };
 
 /*class AstPrinter : public Visitor {

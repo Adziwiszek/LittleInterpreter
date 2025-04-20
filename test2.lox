@@ -1,8 +1,15 @@
 class Bagel {
-  fun eat() {
-    print "eating...";
+  fun setStuff() {
+    this.stuff = "adam";
+  }
+
+  fun printStuff() {
+    print this.stuff;
   }
 }
 
 var bagel = Bagel();
-bagel.eat();
+bagel.setStuff();
+print bagel.stuff;
+bagel.printStuff();
+

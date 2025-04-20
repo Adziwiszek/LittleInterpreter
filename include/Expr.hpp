@@ -19,6 +19,12 @@ public:
 using ExprPtr = std::shared_ptr<Expr>;
 using Exprs  = std::vector<ExprPtr>;
 
+struct This : public Expr {
+  Token keyword;
+  This(Token keyword);
+  virtual Value accept(Visitor* visitor) override; 
+};
+
 class Call : public Expr {
 public:
   ExprPtr callee;
