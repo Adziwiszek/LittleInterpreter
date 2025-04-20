@@ -238,10 +238,13 @@ StmtPtr Parser::expressionStatement() {
 
 StmtPtr Parser::whileStatement() {
   consume(LEFT_PAREN, "Expect '(' after 'while'.");
+  int line = previous().line;
   ExprPtr cond = expression();
   consume(RIGHT_PAREN, "Expect ')' after while condition.");
   StmtPtr body = statement();
-  return std::make_shared<Stmt::While>(std::move(cond), std::move(body));
+  auto whileStmt = std::make_shared<Stmt::While>(std::move(cond), std::move(body));
+  whileStmt->line = line;
+  return whileStmt;
 }
 
 StmtPtr Parser::forStatement() {

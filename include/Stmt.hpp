@@ -69,6 +69,7 @@ class While : public Stmt {
 public:
   ExprPtr condition;
   std::shared_ptr<Stmt> body;
+  int line;
 
   While(std::shared_ptr<Expr::Expr> condition, std::shared_ptr<Stmt> body);
   virtual Value accept(Visitor<Value>* visitor) override; 
@@ -77,10 +78,10 @@ public:
 
 class If : public Stmt {
 public:
-  int line;
   ExprPtr condition;
   StmtPtr thenBranch;
   StmtPtr elseBranch;
+  int line;
 
   If(ExprPtr& condition, StmtPtr& thenBranch, StmtPtr& elseBranch);
   virtual Value accept(Visitor<Value>* visitor) override; 

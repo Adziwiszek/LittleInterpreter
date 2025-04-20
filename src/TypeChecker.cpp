@@ -57,12 +57,31 @@ Type TypeChecker::typeCheck(const Stmt::Stmts& program) {
 Type TypeChecker::visitBinop(Expr::Binop* expr) { 
   Type typeLeft = typeCheck(expr->left);
   Type typeRight = typeCheck(expr->right);
-  DPRINT("left = %s | right = %s\n", typeToString(typeLeft).c_str(), typeToString(typeRight).c_str());
+  //DPRINT("binop | left = %s | right = %s\n", typeToString(typeLeft).c_str(), typeToString(typeRight).c_str());
   if(typeLeft != typeRight) {
     lox.error(expr->op, "Cannot do " + expr->op.toString() + "between " +
         typeToString(typeLeft) + " and " + typeToString(typeRight)); 
+    return Type::NIL;
   }
-  return {}; 
+
+  switch(expr->op.type) {
+    case LESS:
+    case LESS_EQUAL:
+    case GREATER:
+    case GREATER_EQUAL:
+      return Type::BOOLEAN;
+      break;
+    case PLUS:
+    case MINUS:
+    case STAR:
+    case SLASH:
+      return typeLeft;
+      break;
+    // shouldn't happen
+    default:
+      return Type::NIL;
+      break;
+  }
 }
 
 Type TypeChecker::visitUnop(Expr::Unop* expr) { 
@@ -104,8 +123,9 @@ Type TypeChecker::visitPrintStmt(Stmt::Print* varstmt) {
 Type TypeChecker::visitVarStmt(Stmt::Var* stmt) { 
   auto& currentScope = scopes.back();
   currentScope[stmt->name.lexeme] = typeCheck(stmt->initializer);
-  DPRINT("putting stuff into scope, %s\n", 
+  /*DPRINT("putting stuff into scope, %s\n", 
       typeToString(currentScope[stmt->name.lexeme]).c_str());
+  */
   return Type::NIL;
 }
 
@@ -115,7 +135,10 @@ Type TypeChecker::visitVariableExpr(Expr::Variable* var) {
   return t; 
 }
 
-Type TypeChecker::visitAssign(Expr::Assign* expr) { return {}; }
+Type TypeChecker::visitAssign(Expr::Assign* expr) { 
+  typeCheck(expr->value);
+  return Type::NIL; 
+}
 
 Type TypeChecker::visitBlockStmt(Stmt::Block* stmt) { 
   beginScope();
@@ -125,6 +148,7 @@ Type TypeChecker::visitBlockStmt(Stmt::Block* stmt) {
   endScope();
   return Type::NIL; 
 }
+
 Type TypeChecker::visitIfStmt(Stmt::If* stmt) { 
   Type condType = typeCheck(stmt->condition);
   if(condType != Type::BOOLEAN) {
@@ -136,9 +160,31 @@ Type TypeChecker::visitIfStmt(Stmt::If* stmt) {
     typeCheck(stmt->elseBranch);
   return Type::NIL; 
 }
-Type TypeChecker::visitLogical(Expr::Logical* expr) { return {}; }
-Type TypeChecker::visitWhileStmt(Stmt::While* stmt) { return {}; }
-Type TypeChecker::visitBreakStmt(Stmt::Break* stmt) { return {}; }
+
+Type TypeChecker::visitLogical(Expr::Logical* expr) { 
+  Type typeLeft = typeCheck(expr->left);
+  Type typeRight = typeCheck(expr->right);
+  //DPRINT("left = %s | right = %s\n", typeToString(typeLeft).c_str(), typeToString(typeRight).c_str());
+  if(typeLeft != Type::BOOLEAN || typeRight != Type::BOOLEAN) {
+    lox.error(expr->op.line, 
+        "Expected values in logical expression to be Boolean, but got " +
+        typeToString(typeLeft) + " and " + typeToString(typeRight) + " instead.");
+    return Type::NIL;
+  }
+  return Type::BOOLEAN; 
+}
+
+Type TypeChecker::visitWhileStmt(Stmt::While* stmt) { 
+  Type condType = typeCheck(stmt->condition);
+  if(condType != Type::BOOLEAN) {
+    lox.error(stmt->line, "Condition must be of boolean type."); 
+  }
+  typeCheck(stmt->body);
+  return {}; 
+}
+Type TypeChecker::visitBreakStmt(Stmt::Break* stmt) { 
+  return Type::NIL; 
+}
 
 Type TypeChecker::visitClassStmt(Stmt::Class* stmt) { return {}; }
 Type TypeChecker::visitCall(Expr::Call* expr) { return {}; }

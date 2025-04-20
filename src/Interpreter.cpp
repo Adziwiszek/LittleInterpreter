@@ -172,7 +172,6 @@ Value Interpreter::visitVarStmt(Stmt::Var* stmt) {
   return val;
 }
 Value Interpreter::visitVariableExpr(Expr::Variable* expr) {
-  std::cout << "visiting var expr\n"; 
   return lookUpVariable(expr->name, expr);
 }
 Value Interpreter::visitAssign(Expr::Assign* expr) {
