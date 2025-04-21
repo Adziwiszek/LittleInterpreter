@@ -61,11 +61,11 @@ bool Value::isType(Type type) const {
 
 std::string Value::getTypeName() const {
   switch (getType()) {
-    case Type::NIL: return "nil";
-    case Type::BOOLEAN: return "boolean";
-    case Type::NUMBER: return "number";
-    case Type::STRING: return "string";
-    case Type::FUNCTION: return "function";
+    case Type::NIL: return "Nil";
+    case Type::BOOLEAN: return "Boolean";
+    case Type::NUMBER: return "Number";
+    case Type::STRING: return "String";
+    case Type::FUNCTION: return "Function";
     //case Type::CLASS: return "class";
     //case Type::INSTANCE: return "instance";
     default: return "Unknown Type!";

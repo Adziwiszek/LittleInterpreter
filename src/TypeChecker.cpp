@@ -59,8 +59,8 @@ Type TypeChecker::visitBinop(Expr::Binop* expr) {
   Type typeRight = typeCheck(expr->right);
   //DPRINT("binop | left = %s | right = %s\n", typeToString(typeLeft).c_str(), typeToString(typeRight).c_str());
   if(typeLeft != typeRight) {
-    lox.error(expr->op, "Cannot do " + expr->op.toString() + "between " +
-        typeToString(typeLeft) + " and " + typeToString(typeRight)); 
+    lox.error(expr->op, "Cannot do " + expr->op.toString() + "between [" +
+        typeToString(typeLeft) + "] and [" + typeToString(typeRight) + "]."); 
     return Type::NIL;
   }
 
@@ -90,11 +90,11 @@ Type TypeChecker::visitUnop(Expr::Unop* expr) {
   switch(expr->op.type) {
     case MINUS:
       if(exprType != Type::NUMBER) lox.error(expr->op.line, 
-          "Expression after '-' should have type Number.");
+          "Expression after '-' should have type [Number].");
       break;
     case BANG:
       if(exprType != Type::BOOLEAN) lox.error(expr->op.line, 
-          "Expression after '!' should have type Boolean.");
+          "Expression after '!' should have type [Boolean].");
       break;
     // this shouldn't happen
     default:
@@ -136,7 +136,13 @@ Type TypeChecker::visitVariableExpr(Expr::Variable* var) {
 }
 
 Type TypeChecker::visitAssign(Expr::Assign* expr) { 
-  typeCheck(expr->value);
+  Type assValType = typeCheck(expr->value);
+  Type prevVarType = getVarType(expr->name);
+  if(assValType != prevVarType) {
+    lox.error(expr->name.line, 
+        "Cannot assign value of type [" + typeToString(assValType) + 
+        "] to variable of type [" + typeToString(prevVarType) +"].");
+  }
   return Type::NIL; 
 }
 
@@ -152,7 +158,7 @@ Type TypeChecker::visitBlockStmt(Stmt::Block* stmt) {
 Type TypeChecker::visitIfStmt(Stmt::If* stmt) { 
   Type condType = typeCheck(stmt->condition);
   if(condType != Type::BOOLEAN) {
-    lox.error(stmt->line, "Condition must be of boolean type."); 
+    lox.error(stmt->line, "Condition must be of type [Boolean]."); 
   }
 
   typeCheck(stmt->thenBranch);
@@ -167,8 +173,8 @@ Type TypeChecker::visitLogical(Expr::Logical* expr) {
   //DPRINT("left = %s | right = %s\n", typeToString(typeLeft).c_str(), typeToString(typeRight).c_str());
   if(typeLeft != Type::BOOLEAN || typeRight != Type::BOOLEAN) {
     lox.error(expr->op.line, 
-        "Expected values in logical expression to be Boolean, but got " +
-        typeToString(typeLeft) + " and " + typeToString(typeRight) + " instead.");
+        "Expected values in logical expression to be [Boolean], but got [" +
+        typeToString(typeLeft) + "] and [" + typeToString(typeRight) + "] instead.");
     return Type::NIL;
   }
   return Type::BOOLEAN; 
@@ -177,11 +183,12 @@ Type TypeChecker::visitLogical(Expr::Logical* expr) {
 Type TypeChecker::visitWhileStmt(Stmt::While* stmt) { 
   Type condType = typeCheck(stmt->condition);
   if(condType != Type::BOOLEAN) {
-    lox.error(stmt->line, "Condition must be of boolean type."); 
+    lox.error(stmt->line, "Condition must be of [Boolean] type."); 
   }
   typeCheck(stmt->body);
   return {}; 
 }
+
 Type TypeChecker::visitBreakStmt(Stmt::Break* stmt) { 
   return Type::NIL; 
 }
